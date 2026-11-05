@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 
 export type Db = Database.Database;
 
-// Amounts are USDT base units stored as TEXT; JSON columns hold arrays/objects as TEXT.
+// IDs and addresses are stored lowercase. Amounts are USDT base units as TEXT; JSON columns are TEXT.
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS devices (
   id                  TEXT PRIMARY KEY, -- derived from the SPKI DER bytes
@@ -22,17 +22,16 @@ CREATE TABLE IF NOT EXISTS rentals (
   deposit       TEXT NOT NULL,
   return_by     TEXT NOT NULL,
   schedule_bps  TEXT NOT NULL,
+  terms_json    TEXT NOT NULL,
   terms_hash    TEXT NOT NULL,
   nonce         TEXT NOT NULL,
   state         TEXT NOT NULL DEFAULT 'None',
-  create_tx     TEXT,
-  fund_tx       TEXT,
-  settle_tx     TEXT,
+  onchain       INTEGER NOT NULL DEFAULT 0,
+  proposed_at   INTEGER,
   created_at    TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS scans (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
   rental_id       TEXT NOT NULL REFERENCES rentals(id),
   phase           TEXT NOT NULL CHECK (phase IN ('pickup', 'return')),
   device_key_id   TEXT NOT NULL REFERENCES devices(id),
@@ -40,16 +39,15 @@ CREATE TABLE IF NOT EXISTS scans (
   manifest_hash   TEXT NOT NULL,
   signature_b64   TEXT NOT NULL,
   captured_at     TEXT NOT NULL,
-  photo_roots     TEXT NOT NULL DEFAULT '[]',
+  bundle_root     TEXT,
   confirmations   TEXT NOT NULL DEFAULT '[]',
-  tx_hash         TEXT,
+  recorded_tx     TEXT,
   created_at      TEXT NOT NULL,
-  UNIQUE (rental_id, phase)
+  PRIMARY KEY (rental_id, phase)
 );
 
 CREATE TABLE IF NOT EXISTS inspections (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  rental_id        TEXT NOT NULL REFERENCES rentals(id),
+  rental_id        TEXT PRIMARY KEY REFERENCES rentals(id),
   status           TEXT NOT NULL CHECK (status IN ('running', 'paused', 'done', 'needs_human')),
   model            TEXT,
   provider         TEXT,
@@ -58,15 +56,26 @@ CREATE TABLE IF NOT EXISTS inspections (
   tee_verified     INTEGER,
   raw_output       TEXT,
   verdict_json     TEXT,
-  severity_json    TEXT,
-  confidence_bps   INTEGER,
+  decision_json    TEXT,
+  billing_json     TEXT,
   capture          TEXT,
+  needs_arbiter    INTEGER,
   inspection_root  TEXT,
   cost_usd         REAL,
   tx_hash          TEXT,
-  error            TEXT,
+  reason           TEXT,
+  attempts         INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at  INTEGER,
   started_at       TEXT NOT NULL,
   finished_at      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS txs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  rental_id  TEXT NOT NULL REFERENCES rentals(id),
+  label      TEXT NOT NULL,
+  hash       TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 `;
 
