@@ -16,6 +16,7 @@ import type { EnsureBundleRoot } from "./photos/uploader.js";
 import { createRateLimiter, ipRateLimit, type RateLimiter } from "./ratelimit.js";
 import type { Repo } from "./rentals/repo.js";
 import { JSON_LIMIT } from "./routes/common.js";
+import { exportRoutes } from "./routes/export.js";
 import { rentalRoutes } from "./routes/rentals.js";
 import { scanRoutes } from "./routes/scans.js";
 
@@ -75,6 +76,7 @@ export function createApp(input: AppDeps): Hono {
 
   rentalRoutes(app, deps);
   scanRoutes(app, deps);
+  exportRoutes(app, deps);
   serveWeb(app, deps.webDist);
 
   app.notFound((c) => c.json({ error: "not found" }, 404));
@@ -93,6 +95,6 @@ export function createApp(input: AppDeps): Hono {
 function serveWeb(app: Hono, webDist: string | undefined): void {
   if (!webDist || !existsSync(join(webDist, "index.html"))) return;
   const index = readFileSync(join(webDist, "index.html"), "utf8");
-  for (const path of ["/pay/*", "/r/*", "/owner", "/shop"]) app.get(path, (c) => c.html(index));
+  for (const path of ["/pay/*", "/r/*", "/owner", "/shop", "/arbiter"]) app.get(path, (c) => c.html(index));
   app.get("/assets/*", serveStatic({ root: relative(process.cwd(), webDist) }));
 }

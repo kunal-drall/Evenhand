@@ -47,11 +47,16 @@ export function rentalRoutes(app: Hono, deps: RouteDeps): void {
     return c.json({ rentalId: id, payUrl: `${deps.publicBaseUrl}/pay/${id}`, ...(txHash && { txHash }) });
   });
 
+  // ?owner=0x.. for the owner dashboard; ?queue=arbiter for rentals waiting on a human (Appealed or needs_human).
   app.get("/rentals", (c) => {
+    const view = (id: string) => buildRentalView(repo, deps.publicBaseUrl, id);
+    if (c.req.query("queue") === "arbiter") {
+      const waiting = repo.listRentals().filter((r) => r.state === "Appealed" || repo.getInspection(r.id)?.status === "needs_human");
+      return c.json(waiting.map((r) => view(r.id)));
+    }
     const owner = Address.safeParse(c.req.query("owner"));
-    if (!owner.success) throw new HTTPException(400, { message: "owner query must be an address" });
-    const views = repo.listRentals({ owner: owner.data }).map((r) => buildRentalView(repo, deps.publicBaseUrl, r.id));
-    return c.json(views);
+    if (!owner.success) throw new HTTPException(400, { message: "owner query must be an address, or queue=arbiter" });
+    return c.json(repo.listRentals({ owner: owner.data }).map((r) => view(r.id)));
   });
 
   app.get("/rentals/:id", (c) => {
