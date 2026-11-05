@@ -1,0 +1,22 @@
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+libs = ["dependencies"]
+optimizer = true
+optimizer_runs = 200
+# TODO(C1): confirm Whitechain's EVM version before deploy; pin evm_version if it is older than cancun.
+
+[dependencies]
+forge-std = "1.17.0"
+"@openzeppelin-contracts" = "5.7.0"
+
+[soldeer]
+remappings_generate = false
+recursive_deps = false
+
+[rpc_endpoints]
+whitechain = "${WC_RPC_URL}"
+
+# Blockscout verification (C1): forge verify-contract --verifier blockscout --verifier-url https://explorer.testnet.whitechain.io/api/
