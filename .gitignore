@@ -1,0 +1,8 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# macOS / exFAT metadata
+.DS_Store
+._*
