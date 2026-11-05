@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 01:10 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 01:20 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -70,7 +70,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | By | Milestone | Owner | Status |
 |---|---|---|---|
 | Thu 23:59 | Repo scaffolded, interfaces + shared schemas | Kunal | done 00:40 (branch `c0-scaffold`) |
-| Fri 03:00 | 0G spike: JSON verdict, `request_id`, `tee_verified`, storage root | Kunal | in progress |
+| Fri 03:00 | 0G spike: JSON verdict, `request_id`, `tee_verified`, storage root | Kunal | code done 01:20; live run needs keys |
 | Fri 03:00 | USDT spike: `receiveWithAuthorization` lands on chain 1874 | Solidity dev | not in repo yet |
 | Fri 03:00 | Capture spike: Secure Enclave signature verified by server | Swift dev | server side ready |
 | Fri 10:00 | Contract complete, tested, deployed, verified | Solidity dev | |
@@ -86,7 +86,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | ID | Chunk | Owner | Status | Branch / PR |
 |---|---|---|---|---|
 | C0 | Scaffold: workspace, shared schemas, server stubs, web skeleton, Foundry | Kunal | **done** (build, 17 tests, forge pass) | `c0-scaffold` (PR waits for `gh auth login`) |
-| C2 | 0G spike: models, one vision call, storage upload | Kunal | **in progress**: model list done; chat and storage need `.env` keys | `c2-spike-0g` |
+| C2 | 0G spike: models, one vision call, storage upload | Kunal | **code done**: model list verified live; chat call and storage upload wait for `.env` keys (`pnpm -C server spike:0g`) | `c2-spike-0g` |
 | C1a | USDT authorization spike | Solidity dev | not started in repo | |
 | C3a | Capture spike (iOS) | Swift dev | server route `/debug/verify-manifest` ready | |
 | C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | empty contract scaffolded | |
@@ -114,6 +114,8 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | Minimal deps: tiny path router in web, no router library; own zod JSON helper in server | fewer packages to audit |
 | 11-06 | 0G model choice: image in, text out, `response_format` supported, cheapest first; env overrides win | first pass at about $0.045/M input tokens (`qwen2.5-vl-72b-instruct`) |
 | 11-06 | pnpm 12 `allowBuilds`: only better-sqlite3 and esbuild run install scripts | supply-chain hygiene |
+| 11-06 | PRD's `qwen3-omni-flash` is not auto-picked: it lacks `response_format` | the inspection request needs JSON mode |
+| 11-06 | Spike photos are synthetic (lid with and without a scratch); real laptop photos replace them for the demo | unblocks the 0G call before the iPhone app exists |
 
 ## 7. Sponsor checklist (tick when done, with link)
 
