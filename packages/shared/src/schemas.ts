@@ -116,11 +116,14 @@ export const InspectionLog = z.object({
   returnManifestHash: Bytes32,
   photoRoots: z.object({ pickup: z.array(Bytes32), return: z.array(Bytes32) }),
   rawOutput: z.string(),
-  parsed: ModelVerdict,
+  /** null only when the model's output failed the schema twice. */
+  parsed: ModelVerdict.nullable(),
   decision: z.object({
     route: z.enum(["auto", "needs_human"]),
     severity: z.array(z.number().int().min(0).max(3)).length(6),
     confidenceBps: Bps,
+    /** Why the route is needs_human (additive to the spec). */
+    reason: z.string().optional(),
   }),
   billing: z.unknown(),
   startedAt: IsoDateTime,
@@ -146,6 +149,10 @@ export const InspectionView = z.object({
   teeVerified: z.boolean().nullable().optional(),
   inspectionRoot: Bytes32.optional(),
   costUsd: z.number().optional(),
+  /** Additive: why the inspection is paused or needs a human. */
+  reason: z.string().optional(),
+  /** Additive: the contract routed the verdict to the arbiter (cap or confidence). */
+  needsArbiter: z.boolean().optional(),
 });
 export type InspectionView = z.infer<typeof InspectionView>;
 
@@ -187,7 +194,16 @@ export const CreateRentalBody = z.strictObject({
   item: z.string().min(1).max(120),
 });
 export type CreateRentalBody = z.infer<typeof CreateRentalBody>;
-export const CreateRentalResponse = z.object({ rentalId: Bytes32, payUrl: z.url(), txHash: Bytes32 });
+/** txHash is absent when renterAddress was not given: createRental is then sent at funding time. */
+export const CreateRentalResponse = z.object({ rentalId: Bytes32, payUrl: z.url(), txHash: Bytes32.optional() });
+
+/** GET /payment-config (additive): what the pay page needs to sign the EIP-3009 authorization. */
+export const PaymentConfig = z.object({
+  chainId: z.number().int(),
+  depositsAddress: Address,
+  usdt: z.object({ address: Address, name: z.string(), version: z.string(), decimals: z.number().int() }),
+});
+export type PaymentConfig = z.infer<typeof PaymentConfig>;
 
 /** EIP-3009 ReceiveWithAuthorization signed by the renter (section 6). */
 export const FundBody = z.strictObject({
