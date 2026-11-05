@@ -196,9 +196,11 @@ export const CreateRentalBody = z.strictObject({
   returnBy: IsoDateTime,
   scheduleBps: z.tuple([z.literal(0), Bps, Bps, Bps]),
   item: z.string().min(1).max(120),
+  /** Additive: the owner device allowed to scan this rental. Without it, the first accepted pickup scan binds the device. */
+  ownerDeviceKeyId: z.string().min(1).max(128).optional(),
 });
 export type CreateRentalBody = z.infer<typeof CreateRentalBody>;
-/** txHash is absent when renterAddress was not given: createRental is then sent at funding time. */
+/** createRental is sent at funding time (once a valid, funded authorization arrives), so txHash is normally absent. */
 export const CreateRentalResponse = z.object({ rentalId: Bytes32, payUrl: z.url(), txHash: Bytes32.optional() });
 
 /** GET /payment-config (additive): what the pay page needs to sign the EIP-3009 authorization. */

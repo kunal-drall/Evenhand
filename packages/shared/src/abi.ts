@@ -1,9 +1,9 @@
 // Contract ABIs. EvenhandDeposits matches contracts/src/EvenhandDeposits.sol (docs/interfaces.md section 3),
 // including its custom errors so reverts decode by name.
-import { parseAbi } from "viem";
+import { encodeAbiParameters, keccak256, parseAbi, parseAbiParameters } from "viem";
 
 export const evenhandDepositsAbi = parseAbi([
-  "struct Rental { address owner; address renter; uint96 deposit; uint40 returnBy; uint40 proposedAt; uint8 state; uint16[4] scheduleBps; bytes32 termsHash; bytes32 pickupManifest; bytes32 returnManifest; bytes32 inspectionRoot; uint96 proposedCapture; uint16 confidenceBps; }",
+  "struct Rental { address owner; address renter; uint96 deposit; uint40 returnBy; uint40 proposedAt; uint8 state; uint16[4] scheduleBps; bytes32 termsHash; bytes32 pickupManifest; bytes32 returnManifest; bytes32 inspectionRoot; uint96 proposedCapture; uint16 confidenceBps; uint40 returnedAt; }",
   "function createRental(bytes32 id, address owner, address renter, uint96 deposit, uint40 returnBy, uint16[4] scheduleBps, bytes32 termsHash)",
   "function fundWithAuthorization(bytes32 id, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
   "function recordPickup(bytes32 id, bytes32 manifestHash)",
@@ -14,6 +14,8 @@ export const evenhandDepositsAbi = parseAbi([
   "function finalize(bytes32 id)",
   "function waive(bytes32 id)",
   "function refundOnTimeout(bytes32 id)",
+  "function escalate(bytes32 id)",
+  "function fundingNonce(bytes32 id) view returns (bytes32)",
   "function setTeeSigner(address signer)",
   "function getRental(bytes32 id) view returns (Rental)",
   "event RentalCreated(bytes32 indexed id, address indexed owner, address indexed renter, uint96 deposit, uint40 returnBy, bytes32 termsHash)",
@@ -44,6 +46,7 @@ export const evenhandDepositsAbi = parseAbi([
   "error DepositMismatch()",
   "error BadTeeSignature()",
   "error BadTeeText()",
+  "error WrongNonce()",
 ]);
 
 /** The subset of TetherTokenV2 that Evenhand reads or signs for (EIP-3009 + EIP-712 domain). */
@@ -66,3 +69,8 @@ export const receiveWithAuthorizationTypes = {
     { name: "nonce", type: "bytes32" },
   ],
 } as const;
+
+/** The EIP-3009 nonce a renter must sign for a rental: keccak256(abi.encode(depositsContract, rentalId)). */
+export function fundingNonce(depositsAddress: `0x${string}`, rentalId: `0x${string}`): `0x${string}` {
+  return keccak256(encodeAbiParameters(parseAbiParameters("address, bytes32"), [depositsAddress, rentalId]));
+}
