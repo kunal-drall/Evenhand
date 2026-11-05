@@ -13,7 +13,8 @@
     "fixtures:pair": "tsx scripts/make-fixture-pair.ts",
     "e2e": "tsx scripts/e2e-local.ts",
     "dev:fake": "tsx scripts/dev-fake.ts",
-    "replay": "tsx scripts/replay.ts"
+    "replay": "tsx scripts/replay.ts",
+    "preflight": "tsx scripts/preflight.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.13",

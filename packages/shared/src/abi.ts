@@ -28,6 +28,8 @@ export const evenhandDepositsAbi = parseAbi([
   "event Refunded(bytes32 indexed id, uint96 amount, bytes32 reason)",
   "event TeeSignerSet(address signer)",
   "function teeSigner() view returns (address)",
+  "function inspector() view returns (address)",
+  "function arbiter() view returns (address)",
   "function appealWindow() view returns (uint40)",
   "function grace() view returns (uint40)",
   "function teeSuffix(bytes32 id, uint8[6] severity, uint16 confidenceBps) pure returns (bytes)",
