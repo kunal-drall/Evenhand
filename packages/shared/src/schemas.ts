@@ -201,7 +201,15 @@ export const CreateRentalResponse = z.object({ rentalId: Bytes32, payUrl: z.url(
 export const PaymentConfig = z.object({
   chainId: z.number().int(),
   depositsAddress: Address,
-  usdt: z.object({ address: Address, name: z.string(), version: z.string(), decimals: z.number().int() }),
+  usdt: z.object({ address: Address, decimals: z.number().int() }),
+  /** EIP-712 domain verified against USDT's DOMAIN_SEPARATOR(); sign with exactly these fields. */
+  domain: z.object({
+    name: z.string(),
+    version: z.string(),
+    chainId: z.number().int().optional(),
+    verifyingContract: Address,
+    salt: Bytes32.optional(),
+  }),
 });
 export type PaymentConfig = z.infer<typeof PaymentConfig>;
 
