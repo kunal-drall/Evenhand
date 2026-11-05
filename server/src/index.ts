@@ -48,6 +48,7 @@ const app = createApp({
   photoKey,
   zgHealth: createZgHealth(config),
   publicBaseUrl: config.publicBaseUrl,
+  operatorToken: config.operatorToken,
   webDist: fileURLToPath(new URL("../../web/dist", import.meta.url)),
 });
 
@@ -55,6 +56,7 @@ setInterval(() => void keeper.tick(), 30_000).unref();
 setInterval(() => void keeper.checkGas(), 10 * 60_000).unref();
 void keeper.checkGas();
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
+if (!config.operatorToken) console.log("warning: OPERATOR_TOKEN is not set, so rental listings and the CSV export are open");
+serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {
   console.log(`evenhand server listening on :${info.port} (chain ${chain.ready ? "ready" : "not configured"}, storage ${storage ? "ready" : "not configured"})`);
 });

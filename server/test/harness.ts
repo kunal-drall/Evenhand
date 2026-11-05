@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { ANGLES, receiveWithAuthorizationTypes, type PaymentConfig, type RentalState } from "@evenhand/shared";
+import { ANGLES, fundingNonce, receiveWithAuthorizationTypes, type PaymentConfig, type RentalState } from "@evenhand/shared";
 import { parseSignature, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createApp } from "../src/app.js";
@@ -49,7 +49,9 @@ export class FakeChain implements ChainPort {
     return hash;
   }
   async fund(id: Hex, auth: FundAuth) {
-    return this.tx("fundWithAuthorization", [id, auth]);
+    const hash = this.tx("fundWithAuthorization", [id, auth]);
+    this.usedNonces.add(`${this.rentals.get(id)!.renter.toLowerCase()}:${auth.nonce}`);
+    return hash;
   }
   async recordPickup(id: Hex, h: Hex) {
     return this.tx("recordPickup", [id, h]);
@@ -62,6 +64,13 @@ export class FakeChain implements ChainPort {
     const r = this.rentals.get(id)!;
     const capture = (r.deposit * BigInt(r.scheduleBps[Math.max(...severity)]!)) / 10_000n;
     return { hash, capture, needsArbiter: this.needsArbiter };
+  }
+  async escalate(id: Hex) {
+    return this.tx("escalate", [id]);
+  }
+  usedNonces = new Set<string>();
+  async authorizationUsed(from: Hex, nonce: Hex) {
+    return this.usedNonces.has(`${from.toLowerCase()}:${nonce}`);
   }
   async finalize(id: Hex) {
     return this.tx("finalize", [id]);
@@ -97,6 +106,7 @@ export class FakeZg implements ZgPort {
   models = MODELS;
   calls: string[] = [];
   noRequestId = false;
+  teeVerified: boolean | null = true;
   async listModels() {
     return this.models;
   }
@@ -110,7 +120,7 @@ export class FakeZg implements ZgPort {
       rawOutput: typeof next === "function" ? next(request.model) : next,
       requestId: this.noRequestId ? null : `req-${this.calls.length}`,
       provider: "0xprovider",
-      teeVerified: true,
+      teeVerified: this.teeVerified,
       billing: { total: "1" },
       chatId: `chat-${this.calls.length}`,
       usage: { prompt_tokens: 1000, completion_tokens: 100 },
@@ -155,7 +165,7 @@ export async function sixJpegs(): Promise<Buffer[]> {
   return jpegs;
 }
 
-export function makeHarness() {
+export function makeHarness(opts: { operatorToken?: string } = {}) {
   const repo = new Repo(openDb(":memory:"));
   const bundles = new BundleStore(mkdtempSync(join(tmpdir(), "evenhand-test-")));
   const photoKey = randomBytes(32);
@@ -174,6 +184,7 @@ export function makeHarness() {
     photoKey,
     zgHealth: async () => ({ router: true, storage: true }),
     publicBaseUrl: "https://evenhand.test",
+    operatorToken: opts.operatorToken,
   });
   const renter = privateKeyToAccount(generatePrivateKey());
   const owner = p256Device();
@@ -198,7 +209,7 @@ export async function createRental(h: Harness, over: Record<string, unknown> = {
   return { res, body: (await res.json()) as { rentalId: string; payUrl: string; txHash?: string; error?: string } };
 }
 
-export async function signFund(h: Harness, rentalId: string, over: { value?: bigint; validBefore?: bigint } = {}) {
+export async function signFund(h: Harness, rentalId: string, over: { value?: bigint; validBefore?: bigint; nonce?: Hex } = {}) {
   const cfg = await h.chain.paymentConfig();
   const now = BigInt(Math.floor(Date.now() / 1000));
   const message = {
@@ -207,7 +218,7 @@ export async function signFund(h: Harness, rentalId: string, over: { value?: big
     value: over.value ?? BigInt(h.repo.getRental(rentalId)!.deposit),
     validAfter: 0n,
     validBefore: over.validBefore ?? now + 3600n,
-    nonce: toHex(randomBytes(32)),
+    nonce: over.nonce ?? fundingNonce(cfg.depositsAddress as Hex, rentalId as Hex),
   };
   const sig = parseSignature(await h.renter.signTypedData({ domain: cfg.domain as never, types: receiveWithAuthorizationTypes, primaryType: "ReceiveWithAuthorization", message }));
   return { from: h.renter.address, validAfter: "0", validBefore: message.validBefore.toString(), nonce: message.nonce, v: Number(sig.v), r: sig.r, s: sig.s };

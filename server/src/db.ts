@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS rentals (
   nonce         TEXT NOT NULL,
   state         TEXT NOT NULL DEFAULT 'None',
   onchain       INTEGER NOT NULL DEFAULT 0,
+  owner_device  TEXT, -- the only device allowed to scan (set at creation, or by the first accepted pickup)
   proposed_at   INTEGER,
   created_at    TEXT NOT NULL
 );

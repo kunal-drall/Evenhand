@@ -43,3 +43,17 @@ export function openBundle(key: Buffer, bundle: Buffer, rentalId: string, phase:
   }
   return out;
 }
+
+/** Decrypts one photo of a bundle (and checks its hash), without touching the others. */
+export function openBundlePhoto(key: Buffer, bundle: Buffer, rentalId: string, phase: Phase, angle: Angle): Buffer | undefined {
+  if (!bundle.subarray(0, 4).equals(MAGIC)) throw new Error("not an Evenhand photo bundle");
+  const headerLen = bundle.readUInt32BE(4);
+  const header = JSON.parse(bundle.subarray(8, 8 + headerLen).toString("utf8")) as Header;
+  if (header.rentalId !== rentalId || header.phase !== phase) throw new Error("bundle belongs to another scan");
+  const e = header.photos.find((p) => p.angle === angle);
+  if (!e) return undefined;
+  const body = bundle.subarray(8 + headerLen);
+  const jpeg = open(key, body.subarray(e.offset, e.offset + e.length), aadFor(rentalId, phase, angle));
+  if (sha256(jpeg) !== e.sha256) throw new Error(`photo ${angle} does not match its hash`);
+  return jpeg;
+}

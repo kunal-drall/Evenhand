@@ -4,7 +4,7 @@ import type { Account, Chain, PublicClient, TransactionReceipt, Transport, Walle
 import type { Hex } from "../config.js";
 
 export const ALLOWED = {
-  inspector: ["createRental", "recordPickup", "recordReturn", "proposeVerdict"],
+  inspector: ["createRental", "recordPickup", "recordReturn", "proposeVerdict", "escalate"],
   relayer: ["fundWithAuthorization", "finalize", "refundOnTimeout"],
 } as const;
 

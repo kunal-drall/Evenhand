@@ -14,6 +14,7 @@ export type RentalRow = {
   nonce: string;
   state: RentalState;
   onchain: boolean;
+  ownerDevice: string | null;
   proposedAt: number | null;
   createdAt: string;
 };
@@ -77,6 +78,7 @@ const rentalFrom = (r: any): RentalRow => ({
   nonce: r.nonce,
   state: r.state,
   onchain: Boolean(r.onchain),
+  ownerDevice: r.owner_device,
   proposedAt: r.proposed_at,
   createdAt: r.created_at,
 });
@@ -151,10 +153,16 @@ export class Repo {
   insertRental(r: Omit<RentalRow, "state" | "onchain" | "proposedAt" | "createdAt">, termsJson: string): void {
     this.db
       .prepare(
-        `INSERT INTO rentals (id, item, owner, renter, deposit, return_by, schedule_bps, terms_json, terms_hash, nonce, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO rentals (id, item, owner, renter, deposit, return_by, schedule_bps, terms_json, terms_hash, nonce, owner_device, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(lc(r.id), r.item, lc(r.owner), r.renter ? lc(r.renter) : null, r.deposit, r.returnBy, JSON.stringify(r.scheduleBps), termsJson, r.termsHash, r.nonce, now());
+      .run(lc(r.id), r.item, lc(r.owner), r.renter ? lc(r.renter) : null, r.deposit, r.returnBy, JSON.stringify(r.scheduleBps), termsJson, r.termsHash, r.nonce, r.ownerDevice, now());
+  }
+
+  /** Binds the scanning device once; returns false if another device is already bound. */
+  bindOwnerDevice(id: string, deviceKeyId: string): boolean {
+    this.db.prepare("UPDATE rentals SET owner_device = ? WHERE id = ? AND owner_device IS NULL").run(deviceKeyId, lc(id));
+    return this.getRental(id)?.ownerDevice === deviceKeyId;
   }
 
   getRental(id: string): RentalRow | undefined {
@@ -205,8 +213,11 @@ export class Repo {
     return row ? scanFrom(row) : undefined;
   }
 
-  setScanBundleRoot(rentalId: string, phase: Phase, root: string): void {
-    this.db.prepare("UPDATE scans SET bundle_root = ? WHERE rental_id = ? AND phase = ?").run(root, lc(rentalId), phase);
+  /** Sets the root only if the scan still has the manifest whose bundle was uploaded. */
+  setScanBundleRoot(rentalId: string, phase: Phase, root: string, manifestHash: string): void {
+    this.db
+      .prepare("UPDATE scans SET bundle_root = ? WHERE rental_id = ? AND phase = ? AND manifest_hash = ?")
+      .run(root, lc(rentalId), phase, manifestHash);
   }
 
   addConfirmation(rentalId: string, phase: Phase, c: Confirmation): void {

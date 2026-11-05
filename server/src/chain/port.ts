@@ -47,11 +47,15 @@ export interface ChainPort {
   recordPickup(id: Hex, manifestHash: Hex): Promise<Hex>;
   recordReturn(id: Hex, manifestHash: Hex): Promise<Hex>;
   proposeVerdict(id: Hex, severity: number[], confidenceBps: number, inspectionRoot: Hex): Promise<{ hash: Hex; capture: bigint; needsArbiter: boolean }>;
+  /** Returned -> Appealed (needs_human) or PickedUp past the deadline -> Appealed. Inspector key. */
+  escalate(id: Hex): Promise<Hex>;
   finalize(id: Hex): Promise<Hex>;
   refundOnTimeout(id: Hex): Promise<Hex>;
   getRental(id: Hex): Promise<OnchainRental>;
   paymentConfig(): Promise<PaymentConfig>;
   usdtBalance(address: Hex): Promise<bigint>;
+  /** EIP-3009 authorizationState: true once a nonce has been used (or cancelled). */
+  authorizationUsed(from: Hex, nonce: Hex): Promise<boolean>;
   gasBalances(): Promise<Partial<Record<SignerRole, bigint>>>;
   /** appealWindow and grace as deployed (seconds). */
   timing(): Promise<{ appealWindowS: number; graceS: number }>;
@@ -129,6 +133,9 @@ export function createViemChain(cfg: Config["chain"]): ChainPort {
       if (!event) throw new Error(`proposeVerdict ${hash} emitted no VerdictProposed event`);
       return { hash, capture: event.args.capture, needsArbiter: event.args.needsArbiter };
     },
+    async escalate(id) {
+      return (await send("inspector", "escalate", [id])).hash;
+    },
     async finalize(id) {
       return (await send("relayer", "finalize", [id])).hash;
     },
@@ -158,6 +165,9 @@ export function createViemChain(cfg: Config["chain"]): ChainPort {
       if (!domain) throw new Error("USDT DOMAIN_SEPARATOR matches no known EIP-712 domain layout");
       paymentConfigCache = { chainId: cfg.chainId, depositsAddress: need(), usdt: { address: cfg.usdt, decimals: Number(decimals) }, domain };
       return paymentConfigCache;
+    },
+    async authorizationUsed(from, nonce) {
+      return publicClient.readContract({ address: cfg.usdt, abi: usdtAbi, functionName: "authorizationState", args: [from, nonce] });
     },
     async usdtBalance(address) {
       return publicClient.readContract({ address: cfg.usdt, abi: usdtAbi, functionName: "balanceOf", args: [address] });

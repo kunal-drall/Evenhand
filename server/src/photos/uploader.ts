@@ -9,9 +9,10 @@ export type EnsureBundleRoot = (rentalId: string, phase: Phase) => Promise<strin
 export function createBundleUploader(repo: Repo, bundles: BundleStore, storage: StoragePort | undefined): EnsureBundleRoot {
   const inflight = new Map<string, Promise<string>>();
   return (rentalId, phase) => {
-    const existing = repo.getScan(rentalId, phase)?.bundleRoot;
-    if (existing) return Promise.resolve(existing);
-    const key = `${rentalId}:${phase}`;
+    const scan = repo.getScan(rentalId, phase);
+    if (scan?.bundleRoot) return Promise.resolve(scan.bundleRoot);
+    if (!scan) return Promise.reject(new Error(`no ${phase} scan for ${rentalId}`));
+    const key = `${rentalId}:${phase}:${scan.manifestHash}`;
     const pending = inflight.get(key);
     if (pending) return pending;
     const run = (async () => {
@@ -19,7 +20,7 @@ export function createBundleUploader(repo: Repo, bundles: BundleStore, storage: 
       const bundle = bundles.read(rentalId, phase);
       if (!bundle) throw new Error(`no local ${phase} photos for ${rentalId}`);
       const { rootHash } = await storage.upload(bundle);
-      repo.setScanBundleRoot(rentalId, phase, rootHash);
+      repo.setScanBundleRoot(rentalId, phase, rootHash, scan.manifestHash);
       return rootHash;
     })().finally(() => inflight.delete(key));
     inflight.set(key, run);

@@ -14,6 +14,9 @@ const Addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "expected 0x address");
 
 const Env = z.object({
   PORT: def(z.coerce.number().int().min(1).max(65_535).default(8787)),
+  // Loopback by default: phones reach the server through the cloudflared tunnel, which connects locally.
+  HOST: def(z.string().default("127.0.0.1")),
+  OPERATOR_TOKEN: opt(z.string().min(16, "OPERATOR_TOKEN must be at least 16 characters")),
   DATA_DIR: def(z.string().default("data")),
   DB_PATH: opt(z.string()),
   PUBLIC_BASE_URL: def(z.url().default("http://localhost:8787")),
@@ -43,6 +46,8 @@ export type Hex = `0x${string}`;
 
 export type Config = {
   port: number;
+  host: string;
+  operatorToken: string | undefined;
   dataDir: string;
   dbPath: string;
   publicBaseUrl: string;
@@ -82,6 +87,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
   return {
     port: e.PORT,
+    host: e.HOST,
+    operatorToken: e.OPERATOR_TOKEN,
     dataDir: e.DATA_DIR,
     dbPath: e.DB_PATH ?? join(e.DATA_DIR, "evenhand.sqlite"),
     publicBaseUrl: e.PUBLIC_BASE_URL.replace(/\/$/, ""),

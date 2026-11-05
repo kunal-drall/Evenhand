@@ -13,6 +13,8 @@ import type { Inspector } from "./inspector/pipeline.js";
 import { canonicalBytes, isP256Spki, manifestHash, verifyManifestSignature } from "./manifest.js";
 import type { BundleStore } from "./photos/store.js";
 import type { EnsureBundleRoot } from "./photos/uploader.js";
+import { createKeyedLock, type KeyedLock } from "./lock.js";
+import { createPhotoTokens, type PhotoTokens } from "./photos/token.js";
 import { createRateLimiter, ipRateLimit, type RateLimiter } from "./ratelimit.js";
 import type { Repo } from "./rentals/repo.js";
 import { JSON_LIMIT } from "./routes/common.js";
@@ -30,15 +32,22 @@ export type AppDeps = {
   zgHealth: () => Promise<{ router: boolean; storage: boolean }>;
   publicBaseUrl: string;
   limiter?: RateLimiter;
+  /** Required for listings, the arbiter queue and the CSV export when set. */
+  operatorToken?: string | undefined;
   clock?: () => number;
   /** Built web app (web/dist) to serve at /pay, /r, /owner, /shop. */
   webDist?: string | undefined;
 };
 
-export type RouteDeps = AppDeps & { limiter: RateLimiter };
+export type RouteDeps = AppDeps & { limiter: RateLimiter; lock: KeyedLock; photoTokens: PhotoTokens };
 
 export function createApp(input: AppDeps): Hono {
-  const deps: RouteDeps = { ...input, limiter: input.limiter ?? createRateLimiter() };
+  const deps: RouteDeps = {
+    ...input,
+    limiter: input.limiter ?? createRateLimiter(),
+    lock: createKeyedLock(),
+    photoTokens: createPhotoTokens(input.photoKey),
+  };
   const { repo } = deps;
   const app = new Hono();
   app.use("*", cors());

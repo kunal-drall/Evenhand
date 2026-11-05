@@ -4,6 +4,7 @@ import type { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { formatUnits } from "viem";
 import type { RouteDeps } from "../app.js";
+import { operatorOnly } from "../ratelimit.js";
 import type { RentalRow, Repo } from "../rentals/repo.js";
 
 const COLUMNS = ["rentalId", "item", "deposit", "capture", "refund", "state", "fundTx", "settleTx", "inspectionRoot", "requestId"];
@@ -39,7 +40,7 @@ function row(repo: Repo, r: RentalRow, decimals: number): string[] {
 }
 
 export function exportRoutes(app: Hono, deps: RouteDeps): void {
-  app.get("/export.csv", async (c) => {
+  app.get("/export.csv", operatorOnly(deps.operatorToken), async (c) => {
     const owner = Address.safeParse(c.req.query("owner"));
     if (!owner.success) throw new HTTPException(400, { message: "owner query must be an address" });
     const decimals = await deps.chain
