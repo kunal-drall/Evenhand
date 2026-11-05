@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 05:40 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 05:55 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -87,7 +87,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 |---|---|---|---|---|
 | C0 | Scaffold: workspace, shared schemas, server stubs, web skeleton, Foundry | Kunal | **done** (build, 17 tests, forge pass) | `c0-scaffold` (PR waits for `gh auth login`) |
 | C2 | 0G spike: models, one vision call, storage upload | Kunal | **code done**: model list verified live; chat call and storage upload wait for `.env` keys (`pnpm -C server spike:0g`) | `c2-spike-0g` |
-| C1a | USDT authorization spike | Solidity dev | not started in repo | |
+| C1a | USDT authorization spike | Solidity dev | **facts verified on chain** (`docs/spikes/usdt.md`: TetherTokenV2, 6 decimals, domain v1, v/r/s overload present); first real pull waits for funding | `c8-review-fixes` |
 | C3a | Capture spike (iOS) | Swift dev | server route `/debug/verify-manifest` ready | |
 | C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | **written as a fallback** (no contract from the team in the repo by 04:00): 26 Foundry tests incl. fuzz; full flow on anvil via `sh scripts/anvil-e2e.sh`; deploy + verify on 1874 waits for keys | `c1-contract` |
 | C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | **code done**: 67 tests (fake chain/0G/storage); live run `pnpm -C server e2e` waits for keys + deployed contract | `c4-server` |
@@ -174,4 +174,5 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 - Run modes: `pnpm -C server dev` (real testnet, needs `.env`), `pnpm -C server dev:fake` (simulator), `pnpm -C web dev` (UI hot reload; proxies the API to :8787).
 - Live checks: `pnpm -C server spike:0g` (0G only), `pnpm -C server e2e` (full flow against a running server).
 - Local chain check (no keys): `sh scripts/anvil-e2e.sh` runs the real contract and server chain code on anvil.
+- Keys: `sh scripts/new-env.sh` writes a fresh `.env` (prints addresses to fund, never keys). Readiness: `pnpm -C server preflight`.
 - Deploy: `cd contracts && forge script script/Deploy.s.sol --rpc-url whitechain --broadcast --verify --verifier blockscout --verifier-url https://explorer.testnet.whitechain.io/api/` (needs `DEPLOYER_PRIVATE_KEY`, `INSPECTOR_PRIVATE_KEY`, `ARBITER_ADDRESS`, `WC_RPC_URL`).
