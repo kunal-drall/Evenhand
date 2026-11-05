@@ -6,7 +6,11 @@ script = "script"
 libs = ["dependencies"]
 optimizer = true
 optimizer_runs = 200
-# TODO(C1): confirm Whitechain's EVM version before deploy; pin evm_version if it is older than cancun.
+# Whitechain testnet (op-reth) headers carry Prague fields (requestsHash), checked 2026-11-06.
+evm_version = "prague"
+solc_version = "0.8.30"
+
+fs_permissions = [{ access = "write", path = "../packages/shared/deployments.json" }]
 
 [dependencies]
 forge-std = "1.17.0"
