@@ -49,10 +49,11 @@ flowchart LR
 | Situation | What happens |
 |---|---|
 | 0G unreachable or times out | **Inspection paused.** No verdict is produced or guessed; the deposit stays held; retries with backoff |
-| Low confidence, an unusable angle, or text in a photo | Routed to a human (`needs_human`); nothing settles automatically |
+| Low confidence, an unusable angle, text in a photo, or 0G reports `tee_verified=false` | Routed to a human: the inspector escalates it onchain to the arbiter; nothing settles automatically |
 | Automatic capture above 50% of the deposit, or confidence below 0.75 | The contract sends it to the arbiter (`Appealed`) |
 | Either side disagrees in the window | Owner or renter can `appeal`; the arbiter settles |
-| No verdict by the return deadline + grace | Anyone can trigger a full refund to the renter |
+| No verdict by the return deadline + grace | Anyone can trigger a full refund to the renter (for a late return, the grace runs from the return) |
+| Item never returned by the deadline + grace | Anyone can `escalate` it to the arbiter; the renter is not refunded automatically |
 | Owner changes their mind | The owner can `waive` and release the full deposit at any time |
 
 ## 0G: what it does here
@@ -68,7 +69,7 @@ Demo run: request IDs and storage roots are listed in [`docs/spikes/demo-run.md`
 
 - **`EvenhandDeposits`** ([`contracts/src/EvenhandDeposits.sol`](contracts/src/EvenhandDeposits.sol)) holds each deposit in the official test USDT and enforces the state machine: `None → Funded → PickedUp → Returned → Proposed/Appealed → Settled`, or `Refunded`. It only ever pays a rental's owner and renter; there is no admin withdrawal and no upgradeability.
 - **Gasless for the renter.** The deposit moves with EIP-3009 `receiveWithAuthorization`, which only executes when the contract itself is the caller, so a signature cannot be front-run.
-- **Who pays gas, and why the relayer can't be drained.** The business runs two server keys funded with WBT: an inspector key (create, record, propose) and a relayer key (fund, finalize, refund). One `sendTx` helper refuses any other contract or function, caps gas at 500k per transaction, simulates before sending, and sends one transaction per key at a time. Funding is checked offchain first: the EIP-712 signer, the amount, the validity window and the renter's USDT balance. A bad request therefore never costs gas, and the rental is only created onchain once a valid, funded authorization arrives. Requests are rate-limited to 30 per minute per IP and per device key. A `RELAYER_LOW` warning fires below 1 WBT. (Charging operators a fee per rental to cover gas is v2.)
+- **Who pays gas, and why the relayer can't be drained.** The business runs two server keys funded with WBT: an inspector key (create, record, propose) and a relayer key (fund, finalize, refund). One `sendTx` helper refuses any other contract or function, caps gas at 500k per transaction, simulates before sending, and sends one transaction per key at a time. No gas is spent when a rental is created. It goes onchain only when a valid, funded authorization arrives, and that authorization is checked offchain first: the EIP-712 signer, the amount, the validity window, the rental-bound nonce, whether the nonce is unused, and the renter's USDT balance. Scans are accepted only from the rental's owner device. Requests are rate-limited to 30 per minute per IP and per device key, and forwarded IPs are trusted only from the local tunnel. A `RELAYER_LOW` warning fires below 1 WBT. (Charging operators a fee per rental to cover gas is v2.)
 - **Drop-in for other shops.** [`web/sdk/evenhand.ts`](web/sdk/evenhand.ts) adds Evenhand deposits to any site; the demo shop at `/shop` uses only the SDK, in about 20 lines.
 - **For the accountant.** `GET /export.csv?owner=0x…` lists every rental with its deposit, capture, refund, state, tx links, inspection root and 0G request ID.
 
@@ -110,7 +111,8 @@ Phones reach the laptop through a tunnel: `cloudflared tunnel --url http://local
 
 - **The server still sees the photos.** It prepares and forwards them to 0G's sealed inference. Sending photos from the phone straight to sealed inference is the next step.
 - **The inspector key is trusted in this version.** Verdicts are accepted from Evenhand's inspector key, bounded by the automatic cap, the confidence threshold and the appeal window. The contract already supports checking the 0G provider's TEE signature over the verdict text (`setTeeSigner`, P1); it stays off until the provider's signed text is confirmed to be the response content.
-- **Human-routed inspections have no onchain verdict.** The arbiter cannot settle them through the contract; the owner can waive, or the renter is refunded in full after the deadline plus grace.
+- **The arbiter is trusted and has no deadline.** Inspections a human must judge, and items never returned, go to the arbiter (`Appealed`). If the arbiter never acts, only the owner's `waive` releases the deposit.
+- **The TEE check binds the verdict text, not the inputs.** With `setTeeSigner` on, a stolen inspector key cannot change a signed verdict. But the signature does not cover which photos were sent, and the canonical suffix does not include the chain or contract address.
 - **Renter appeals need gas today.** `appeal()` must be sent by the owner or the renter; a signature-based, relayed appeal is planned.
 - **Browser keys are not recoverable.** A renter who clears their browser loses the key that receives the refund.
 - **One storage root per scan.** The six encrypted photos of a scan are uploaded to 0G Storage as one bundle (faster), not six files.

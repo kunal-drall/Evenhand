@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 04:50 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 05:40 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -91,13 +91,13 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C3a | Capture spike (iOS) | Swift dev | server route `/debug/verify-manifest` ready | |
 | C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | **written as a fallback** (no contract from the team in the repo by 04:00): 26 Foundry tests incl. fuzz; full flow on anvil via `sh scripts/anvil-e2e.sh`; deploy + verify on 1874 waits for keys | `c1-contract` |
 | C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | **code done**: 67 tests (fake chain/0G/storage); live run `pnpm -C server e2e` waits for keys + deployed contract | `c4-server` |
-| C3 | iOS app | Swift dev | | |
+| C3 | iOS app | Swift dev | `ios/EvenhandCore` Swift package ready (canonical JSON, manifest, Secure Enclave signer, API client; verified against the fixture and Node). The SwiftUI app itself needs Xcode | `c3-ios-core` |
 | C5 | Web: pay, confirm, status, owner dashboard | Kunal | **code done**: full flow verified against the simulator; one-tap pay verified in headless Chrome; phone check on testnet pending | `c5-web` |
 | C6 | End to end on testnet | All | | |
 | C7a | TEE signature check | Solidity dev + Kunal | needs C2 finding | |
 | C7b | Appeal, arbiter, CSV, SDK, shop | Kunal | **mostly done**: CSV export, arbiter queue + page (`resolveAppeal` via arbiter wallet), SDK + `/shop`, pay QR. User-initiated appeal is blocked on a contract change (decisions log) | `c7b-export-sdk-arbiter` |
 | C7c | QR tag, replay | Swift dev + Kunal | **replay done** (`pnpm -C server replay <root>`; matches the logged decision in tests); QR tag is iOS work | `c7c-replay` |
-| C8 | Fresh-eyes review | Solidity dev | | |
+| C8 | Fresh-eyes review | Solidity dev | **done 05:30** (two independent reviews: contract and server money paths). All critical, high and medium findings fixed with tests; the rest is in README "Known limitations" | `c8-review-fixes` |
 | C9 | README, feedback file, AI-use table, submission | Kunal | **README draft done** (TBD placeholders for addresses, links, IDs, team); MIT licence; `docs/spikes/demo-run.md` template; WHITECHAIN_FEEDBACK waits for Kunal's notes | `c9-docs` |
 
 Each feature lands as a branch, then a PR, then a merge. Commits are small and named `<area>: <what changed>`.
@@ -135,6 +135,21 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | Replay re-applies RULES_V1 to the logged outputs of every pass (deterministic); `--rerun` makes a fresh 0G call, which may differ | the logged run is the evidence; a new model run is a second opinion |
 | 11-06 | CSV amounts are in USDT units (e.g. `200`, `70`), not base units | it's for an accountant |
 | 11-06 | `pnpm -C server dev:fake`: the real app on a fake chain and fake storage (real 0G if keyed), 60 s appeal window | UI and iOS work before deploy; demo fallback rehearsal |
+
+### Deviations from `docs/interfaces.md` v1 (pending team approval; then bump the spec to v1.1)
+
+| Area | v1 says | Now | Why |
+|---|---|---|---|
+| Contract `Rental` | 13 fields | + `returnedAt` (appended) | no-verdict timeout for a late return (review H1) |
+| Contract | no `escalate` | `escalate(id)`: inspector Returned → Appealed; anyone PickedUp → Appealed after `returnBy + grace` | arbiter path for `needs_human`; an unreturned item no longer refunds the renter (H1, H2) |
+| `refundOnTimeout` | from Funded, PickedUp, Returned after `returnBy + grace` | Funded after `returnBy + grace`; Returned after `max(returnBy, returnedAt) + grace`; not PickedUp | H1 |
+| EIP-3009 nonce (section 6) | random 32 bytes | `fundingNonce(id) = keccak256(abi.encode(contract, id))` | one rental's authorization cannot fund another (M1) |
+| Section 10 allowlist | inspector: create, pickup, return, propose | + `escalate` | H2 |
+| `POST /rentals` | returns `txHash` | never sends a tx; `createRental` at funding | no unauthenticated gas spend |
+| `POST /rentals` body | | + optional `ownerDeviceKeyId` | scans only from the owner's device |
+| `ScanView.photoUrls` | proxied URLs | + per-scan `?t=` token | photos are not readable from the rental ID alone |
+| Additive endpoints | | `GET /payment-config`, `GET /rentals?owner=` and `?queue=arbiter` (operator token), photo proxy | web pages |
+| `InspectionLog` | | + `passes[]`, `decision.reason`; `parsed` nullable | exact replay |
 
 ## 7. Sponsor checklist (tick when done, with link)
 
