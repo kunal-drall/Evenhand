@@ -1,16 +1,10 @@
-import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { openDb } from "./db.js";
+import { loadDotEnv } from "./env-file.js";
 
-// Repo-root .env (one level above server/src and server/dist). Missing file is fine.
-try {
-  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
-} catch {
-  // no .env: rely on the real environment
-}
-
+loadDotEnv();
 const config = loadConfig();
 const app = createApp(openDb(config.dbPath));
 

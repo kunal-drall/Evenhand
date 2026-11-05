@@ -8,14 +8,19 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "spike:0g": "tsx scripts/spike-0g.ts",
+    "fixtures:pair": "tsx scripts/make-fixture-pair.ts"
   },
   "dependencies": {
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.13",
     "@evenhand/shared": "workspace:*",
     "@hono/node-server": "^2.1.6",
     "better-sqlite3": "^13.0.3",
     "canonicalize": "^5.1.0",
+    "ethers": "6.13.1",
     "hono": "^4.13.16",
+    "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
