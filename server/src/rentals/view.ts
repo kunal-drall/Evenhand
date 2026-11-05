@@ -28,6 +28,7 @@ export function buildRentalView(repo: Repo, base: string, id: string): RentalVie
     renter: r.renter,
     deposit: r.deposit,
     returnBy: r.returnBy,
+    scheduleBps: [0, r.scheduleBps[1], r.scheduleBps[2], r.scheduleBps[3]],
     state: r.state,
     scans,
     ...(ins && {

@@ -167,6 +167,8 @@ export const RentalView = z.object({
   renter: Address.nullable(),
   deposit: UintString,
   returnBy: IsoDateTime,
+  /** Additive: capture share by severity 0..3, shown to the renter before paying. */
+  scheduleBps: z.tuple([z.literal(0), Bps, Bps, Bps]).optional(),
   state: RentalState,
   scans: z.object({ pickup: ScanView.optional(), return: ScanView.optional() }),
   inspection: InspectionView.optional(),
