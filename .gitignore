@@ -22,3 +22,6 @@ out/
 cache/
 contracts/dependencies/
 contracts/broadcast/*/31337/
+
+# local notes, never committed
+*.local.md
