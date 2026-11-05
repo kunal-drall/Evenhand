@@ -14,14 +14,20 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Runs `fn` up to 1 + `retries` times with linear backoff; rethrows the last error. */
-export async function withRetry<T>(fn: () => Promise<T>, retries: number, backoffMs: number): Promise<T> {
+/** Runs `fn` up to 1 + `retries` times with linear backoff while `shouldRetry(err)`; rethrows the last error. */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number,
+  backoffMs: number,
+  shouldRetry: (err: unknown) => boolean = () => true,
+): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
+      if (!shouldRetry(err)) break;
       if (attempt < retries) await sleep(backoffMs * (attempt + 1));
     }
   }
