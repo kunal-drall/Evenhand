@@ -26,3 +26,7 @@ contracts/broadcast/*/31337/
 
 # local notes, never committed
 *.local.md
+
+# swift
+.build/
+.swiftpm/
