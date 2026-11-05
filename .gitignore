@@ -16,6 +16,7 @@ dist/
 *.sqlite
 *.sqlite-*
 server/data/
+server/data-fake/
 
 # foundry
 out/

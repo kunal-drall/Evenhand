@@ -11,7 +11,8 @@
     "test": "vitest run",
     "spike:0g": "tsx scripts/spike-0g.ts",
     "fixtures:pair": "tsx scripts/make-fixture-pair.ts",
-    "e2e": "tsx scripts/e2e-local.ts"
+    "e2e": "tsx scripts/e2e-local.ts",
+    "dev:fake": "tsx scripts/dev-fake.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.13",
