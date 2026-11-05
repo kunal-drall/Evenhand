@@ -35,6 +35,8 @@ async function step2Inspect(model: string) {
     buildInspectionRequest(model, rentalId, [pair]),
   );
   console.log("  raw output:", result.rawOutput);
+  // C7a gate: the contract matches this exact compact suffix at the end of the signed text.
+  console.log("  ends with compact eh suffix (needed for C7a):", /"eh":"EH1;[^"]*"\}$/.test(result.rawOutput));
   console.log("  request_id:", result.requestId, " provider:", result.provider, " tee_verified:", result.teeVerified);
   console.log("  ZG-Res-Key (chat id):", result.chatId);
   console.log("  billing:", JSON.stringify(result.billing));
