@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 01:20 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 02:30 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -90,7 +90,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C1a | USDT authorization spike | Solidity dev | not started in repo | |
 | C3a | Capture spike (iOS) | Swift dev | server route `/debug/verify-manifest` ready | |
 | C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | empty contract scaffolded | |
-| C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | next | |
+| C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | **code done**: 67 tests (fake chain/0G/storage); live run `pnpm -C server e2e` waits for keys + deployed contract | `c4-server` |
 | C3 | iOS app | Swift dev | | |
 | C5 | Web: pay, confirm, status, owner dashboard | Kunal | | |
 | C6 | End to end on testnet | All | | |
@@ -116,6 +116,14 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | pnpm 12 `allowBuilds`: only better-sqlite3 and esbuild run install scripts | supply-chain hygiene |
 | 11-06 | PRD's `qwen3-omni-flash` is not auto-picked: it lacks `response_format` | the inspection request needs JSON mode |
 | 11-06 | Spike photos are synthetic (lid with and without a scratch); real laptop photos replace them for the demo | unblocks the 0G call before the iPhone app exists |
+| 11-06 | No renter at creation: rental ID uses `address(0)` for the renter; `createRental` is sent at funding, with the renter = the authorization's `from`; `txHash` is then absent from `POST /rentals` | the renter's burner key only exists once they open the pay link; also no gas is spent until a valid, funded authorization arrives |
+| 11-06 | One AES-256-GCM bundle per scan (six sealed JPEGs) is both the local copy and the single 0G Storage upload; `photoRoots.pickup/return` hold one root each | 7 sequential storage txs per return would delay the live verdict by minutes; 2 keep it under a minute |
+| 11-06 | Funding is checked offchain first (EIP-712 signer, amount, validity, USDT balance); every tx is simulated and gas-capped before sending | a bad request never costs relayer gas |
+| 11-06 | Inspector stages persist: inference, then storage log, then `proposeVerdict`; a retry resumes the failed stage only | a re-run 0G call could return a different verdict |
+| 11-06 | `needs_human` gets a 0G Storage log but no onchain verdict (spec); the contract can only reach the arbiter via `Appealed` | flagged for C1: needs an inspector `escalate` path or the arbiter can't settle these |
+| 11-06 | Additive endpoints: `GET /payment-config` (verified EIP-712 domain), `GET /rentals?owner=`, `GET /rentals/:id/photos/:phase/:angle` (decrypting proxy) | the web pages need them; spec routes unchanged |
+| 11-06 | The server serves `web/dist` at `/pay`, `/r`, `/owner`, `/shop` | one cloudflared tunnel covers API and renter pages |
+| 11-06 | Cost cap: estimate = rubric + 12 × 1,300 tokens/image + 700 out; refuse above `MAX_INSPECTION_COST_USD` | the token count per image is replaced once the C2 live call measures it |
 
 ## 7. Sponsor checklist (tick when done, with link)
 
