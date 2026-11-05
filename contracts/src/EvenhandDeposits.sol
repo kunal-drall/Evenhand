@@ -54,6 +54,7 @@ contract EvenhandDeposits is ReentrancyGuard {
         bytes32 inspectionRoot;
         uint96 proposedCapture;
         uint16 confidenceBps;
+        uint40 returnedAt; // appended to the spec struct: start of the no-verdict timeout for a returned item
     }
 
     uint16 private constant BPS = 10_000;
@@ -95,6 +96,7 @@ contract EvenhandDeposits is ReentrancyGuard {
     error DepositMismatch();
     error BadTeeSignature();
     error BadTeeText();
+    error WrongNonce();
 
     modifier onlyInspector() {
         if (msg.sender != inspector) revert NotInspector();
@@ -155,12 +157,14 @@ contract EvenhandDeposits is ReentrancyGuard {
 
     /// @notice Pulls the renter's deposit with their EIP-3009 authorization. Anyone may submit it (the relayer pays gas);
     ///         receiveWithAuthorization only executes for msg.sender == to, so the signature cannot be front-run.
+    ///         The authorization nonce must be fundingNonce(id), so a signature for one rental cannot fund another.
     function fundWithAuthorization(bytes32 id, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)
         external
         nonReentrant
     {
         Rental storage rental = _created(id);
         _expect(rental, State.None);
+        if (nonce != fundingNonce(id)) revert WrongNonce();
         rental.state = State.Funded;
         uint256 before = usdt.balanceOf(address(this));
         IERC3009Receive(address(usdt)).receiveWithAuthorization(rental.renter, address(this), rental.deposit, validAfter, validBefore, nonce, v, r, s);
@@ -182,6 +186,7 @@ contract EvenhandDeposits is ReentrancyGuard {
         _expect(r, State.PickedUp);
         if (manifestHash == bytes32(0)) revert InvalidParams();
         r.returnManifest = manifestHash;
+        r.returnedAt = uint40(block.timestamp);
         r.state = State.Returned;
         emit ReturnRecorded(id, manifestHash);
     }
@@ -255,11 +260,32 @@ contract EvenhandDeposits is ReentrancyGuard {
         emit Refunded(id, amount, "WAIVED");
     }
 
-    /// @notice If no verdict arrives by returnBy + grace, anyone can return the full deposit to the renter.
+    /// @notice Sends a rental to the arbiter without an automatic verdict:
+    ///         - Returned: the inspector escalates an inspection a human must judge (unusable angle, text in a photo, low confidence);
+    ///         - PickedUp: anyone, once returnBy + grace has passed and the item was never returned.
+    function escalate(bytes32 id) external {
+        Rental storage r = _created(id);
+        if (r.state == State.Returned) {
+            if (msg.sender != inspector) revert NotInspector();
+        } else if (r.state == State.PickedUp) {
+            if (block.timestamp <= uint256(r.returnBy) + grace) revert TooEarly();
+        } else {
+            revert WrongState(r.state);
+        }
+        r.state = State.Appealed;
+        emit Appealed(id, msg.sender);
+    }
+
+    /// @notice Full refund to the renter when Evenhand fails to act: the item was never picked up by returnBy + grace,
+    ///         or it was returned and no verdict arrived within grace of the later of returnBy and the return.
+    ///         An item that was never returned goes to the arbiter instead (escalate).
     function refundOnTimeout(bytes32 id) external nonReentrant {
         Rental storage r = _created(id);
-        if (r.state != State.Funded && r.state != State.PickedUp && r.state != State.Returned) revert WrongState(r.state);
-        if (block.timestamp <= uint256(r.returnBy) + grace) revert TooEarly();
+        uint256 start;
+        if (r.state == State.Funded) start = r.returnBy;
+        else if (r.state == State.Returned) start = r.returnedAt > r.returnBy ? r.returnedAt : r.returnBy;
+        else revert WrongState(r.state);
+        if (block.timestamp <= start + grace) revert TooEarly();
         r.state = State.Refunded;
         usdt.safeTransfer(r.renter, r.deposit);
         emit Refunded(id, r.deposit, "TIMEOUT");
@@ -272,6 +298,11 @@ contract EvenhandDeposits is ReentrancyGuard {
 
     function getRental(bytes32 id) external view returns (Rental memory) {
         return _rentals[id];
+    }
+
+    /// @notice The EIP-3009 nonce the renter must sign for this rental.
+    function fundingNonce(bytes32 id) public view returns (bytes32) {
+        return keccak256(abi.encode(address(this), id));
     }
 
     /// @notice The suffix the verdict text must end with in P1 TEE mode:

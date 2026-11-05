@@ -45,9 +45,10 @@ contract EvenhandDepositsTest is Test {
     }
 
     function _fund() internal {
-        (uint8 v, bytes32 r, bytes32 s) = _auth(DEPOSIT, bytes32(uint256(1)));
+        bytes32 nonce = d.fundingNonce(ID);
+        (uint8 v, bytes32 r, bytes32 s) = _auth(DEPOSIT, nonce);
         vm.prank(relayer);
-        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, bytes32(uint256(1)), v, r, s);
+        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, nonce, v, r, s);
     }
 
     function _toReturned() internal {
@@ -137,9 +138,23 @@ contract EvenhandDepositsTest is Test {
 
     function test_fund_wrongAmountSignatureReverts() public {
         _create();
-        (uint8 v, bytes32 r, bytes32 s) = _auth(DEPOSIT - 1, bytes32(uint256(1)));
+        bytes32 nonce = d.fundingNonce(ID);
+        (uint8 v, bytes32 r, bytes32 s) = _auth(DEPOSIT - 1, nonce);
         vm.expectRevert("invalid signature");
-        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, bytes32(uint256(1)), v, r, s);
+        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, nonce, v, r, s);
+    }
+
+    function test_fund_authorizationForAnotherRentalReverts() public {
+        _create();
+        bytes32 other = keccak256("rental-2");
+        vm.prank(inspector);
+        d.createRental(other, owner, renter, DEPOSIT, uint40(block.timestamp + 1 days), schedule, 0);
+        bytes32 nonceForId = d.fundingNonce(ID);
+        (uint8 v, bytes32 r, bytes32 s) = _auth(DEPOSIT, nonceForId);
+        vm.expectRevert(EvenhandDeposits.WrongNonce.selector);
+        d.fundWithAuthorization(other, 0, block.timestamp + 1 hours, nonceForId, v, r, s);
+        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, nonceForId, v, r, s);
+        assertEq(uint8(_state()), uint8(EvenhandDeposits.State.Funded));
     }
 
     function test_fund_signatureCannotBeFrontRunAsTransfer() public {
@@ -314,6 +329,69 @@ contract EvenhandDepositsTest is Test {
         assertEq(uint8(_state()), uint8(EvenhandDeposits.State.Refunded));
     }
 
+    function test_refundOnTimeout_fundedButNeverPickedUp() public {
+        _create();
+        _fund();
+        vm.warp(d.getRental(ID).returnBy + uint256(GRACE) + 1);
+        d.refundOnTimeout(ID);
+        assertEq(usdt.balanceOf(renter), 1000e6);
+    }
+
+    function test_itemNeverReturned_goesToArbiterNotRefund() public {
+        _create();
+        _fund();
+        vm.prank(inspector);
+        d.recordPickup(ID, keccak256("pickup"));
+        uint256 deadline = d.getRental(ID).returnBy + uint256(GRACE);
+        vm.warp(deadline + 1);
+        vm.expectRevert(abi.encodeWithSelector(EvenhandDeposits.WrongState.selector, EvenhandDeposits.State.PickedUp));
+        d.refundOnTimeout(ID);
+        vm.prank(stranger);
+        d.escalate(ID);
+        assertEq(uint8(_state()), uint8(EvenhandDeposits.State.Appealed));
+        vm.prank(arbiter);
+        d.resolveAppeal(ID, DEPOSIT);
+        assertEq(usdt.balanceOf(owner), DEPOSIT);
+    }
+
+    function test_escalate_pickedUpOnlyAfterDeadline() public {
+        _create();
+        _fund();
+        vm.prank(inspector);
+        d.recordPickup(ID, keccak256("pickup"));
+        vm.expectRevert(EvenhandDeposits.TooEarly.selector);
+        d.escalate(ID);
+    }
+
+    function test_lateReturn_cannotRaceTheVerdict() public {
+        _create();
+        _fund();
+        vm.prank(inspector);
+        d.recordPickup(ID, keccak256("pickup"));
+        vm.warp(d.getRental(ID).returnBy + uint256(GRACE) + 100);
+        vm.prank(inspector);
+        d.recordReturn(ID, keccak256("return"));
+        vm.expectRevert(EvenhandDeposits.TooEarly.selector);
+        d.refundOnTimeout(ID); // the verdict window now runs from the return
+        _propose(2, 8700);
+        assertEq(uint8(_state()), uint8(EvenhandDeposits.State.Proposed));
+    }
+
+    function test_escalate_needsHumanFromReturned_onlyInspector() public {
+        _toReturned();
+        vm.expectRevert(EvenhandDeposits.NotInspector.selector);
+        d.escalate(ID);
+        vm.prank(inspector);
+        d.escalate(ID);
+        assertEq(uint8(_state()), uint8(EvenhandDeposits.State.Appealed));
+        vm.prank(arbiter);
+        d.resolveAppeal(ID, 0);
+        assertEq(usdt.balanceOf(renter), 1000e6);
+        vm.prank(inspector);
+        vm.expectRevert(abi.encodeWithSelector(EvenhandDeposits.WrongState.selector, EvenhandDeposits.State.Settled));
+        d.escalate(ID);
+    }
+
     function test_refundOnTimeout_notAfterVerdict() public {
         _toReturned();
         _propose(2, 8700);
@@ -370,8 +448,9 @@ contract EvenhandDepositsTest is Test {
         uint16[4] memory sched = [uint16(0), bps, bps, bps];
         vm.prank(inspector);
         d.createRental(ID, owner, renter, deposit, uint40(block.timestamp + 1 days), sched, 0);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(renterKey, usdt.digest(renter, address(d), deposit, 0, block.timestamp + 1 hours, bytes32(uint256(9))));
-        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, bytes32(uint256(9)), v, r, s);
+        bytes32 nonce = d.fundingNonce(ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(renterKey, usdt.digest(renter, address(d), deposit, 0, block.timestamp + 1 hours, nonce));
+        d.fundWithAuthorization(ID, 0, block.timestamp + 1 hours, nonce, v, r, s);
         vm.startPrank(inspector);
         d.recordPickup(ID, keccak256("p"));
         d.recordReturn(ID, keccak256("r"));
