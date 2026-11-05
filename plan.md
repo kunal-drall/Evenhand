@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 04:35 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 04:50 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -98,7 +98,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C7b | Appeal, arbiter, CSV, SDK, shop | Kunal | **mostly done**: CSV export, arbiter queue + page (`resolveAppeal` via arbiter wallet), SDK + `/shop`, pay QR. User-initiated appeal is blocked on a contract change (decisions log) | `c7b-export-sdk-arbiter` |
 | C7c | QR tag, replay | Swift dev + Kunal | **replay done** (`pnpm -C server replay <root>`; matches the logged decision in tests); QR tag is iOS work | `c7c-replay` |
 | C8 | Fresh-eyes review | Solidity dev | | |
-| C9 | README, feedback file, AI-use table, submission | Kunal | | |
+| C9 | README, feedback file, AI-use table, submission | Kunal | **README draft done** (TBD placeholders for addresses, links, IDs, team); MIT licence; `docs/spikes/demo-run.md` template; WHITECHAIN_FEEDBACK waits for Kunal's notes | `c9-docs` |
 
 Each feature lands as a branch, then a PR, then a merge. Commits are small and named `<area>: <what changed>`.
 
