@@ -125,6 +125,7 @@ export function createInspector(deps: InspectorDeps) {
       verdictJson: decisive.verdict ? JSON.stringify(decisive.verdict) : null,
       decisionJson: JSON.stringify(decision),
       billingJson: JSON.stringify(decisive.call.billing ?? null),
+      passesJson: JSON.stringify([first, ...(second ? [second] : [])].map((p) => ({ model: p.model.id, requestId: p.call.requestId, rawOutput: p.call.rawOutput }))),
       costUsd: callCostUsd(first.call, first.model) + (second ? callCostUsd(second.call, second.model) : 0),
       capture: decision.route === "auto" ? captureFor(BigInt(rental.deposit), rental.scheduleBps, decision.severity).toString() : null,
     });
@@ -160,6 +161,7 @@ export function createInspector(deps: InspectorDeps) {
       parsed: ins.verdictJson ? JSON.parse(ins.verdictJson) : null,
       decision,
       billing: ins.billingJson ? JSON.parse(ins.billingJson) : null,
+      passes: ins.passesJson ? JSON.parse(ins.passesJson) : [],
       startedAt: ins.startedAt,
       finishedAt: new Date(clock()).toISOString(),
     });

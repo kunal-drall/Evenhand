@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS inspections (
   verdict_json     TEXT,
   decision_json    TEXT,
   billing_json     TEXT,
+  passes_json      TEXT,
   capture          TEXT,
   needs_arbiter    INTEGER,
   inspection_root  TEXT,

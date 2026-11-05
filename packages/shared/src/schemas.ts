@@ -126,6 +126,8 @@ export const InspectionLog = z.object({
     reason: z.string().optional(),
   }),
   billing: z.unknown(),
+  /** Additive: every model pass in order (first, then optional stronger second pass), for exact replay. */
+  passes: z.array(z.object({ model: z.string(), requestId: z.string().nullable(), rawOutput: z.string() })).optional(),
   startedAt: IsoDateTime,
   finishedAt: IsoDateTime,
 });

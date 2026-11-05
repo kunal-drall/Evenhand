@@ -47,6 +47,8 @@ export type InspectionRow = {
   verdictJson: string | null;
   decisionJson: string | null;
   billingJson: string | null;
+  /** Every model pass: [{ model, requestId, rawOutput }]. */
+  passesJson: string | null;
   capture: string | null;
   needsArbiter: boolean | null;
   inspectionRoot: string | null;
@@ -104,6 +106,7 @@ const inspectionFrom = (r: any): InspectionRow => ({
   verdictJson: r.verdict_json,
   decisionJson: r.decision_json,
   billingJson: r.billing_json,
+  passesJson: r.passes_json,
   capture: r.capture,
   needsArbiter: bool(r.needs_arbiter),
   inspectionRoot: r.inspection_root,
@@ -127,6 +130,7 @@ const INSPECTION_COLUMNS: Record<keyof Omit<InspectionRow, "rentalId">, string> 
   verdictJson: "verdict_json",
   decisionJson: "decision_json",
   billingJson: "billing_json",
+  passesJson: "passes_json",
   capture: "capture",
   needsArbiter: "needs_arbiter",
   inspectionRoot: "inspection_root",
