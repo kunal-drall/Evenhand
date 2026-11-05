@@ -53,6 +53,8 @@ export interface ChainPort {
   paymentConfig(): Promise<PaymentConfig>;
   usdtBalance(address: Hex): Promise<bigint>;
   gasBalances(): Promise<Partial<Record<SignerRole, bigint>>>;
+  /** appealWindow and grace as deployed (seconds). */
+  timing(): Promise<{ appealWindowS: number; graceS: number }>;
 }
 
 export class ChainUnavailableError extends Error {
@@ -159,6 +161,11 @@ export function createViemChain(cfg: Config["chain"]): ChainPort {
     },
     async usdtBalance(address) {
       return publicClient.readContract({ address: cfg.usdt, abi: usdtAbi, functionName: "balanceOf", args: [address] });
+    },
+    async timing() {
+      const read = (functionName: "appealWindow" | "grace") => publicClient.readContract({ address: need(), abi: evenhandDepositsAbi, functionName });
+      const [appealWindow, grace] = await Promise.all([read("appealWindow"), read("grace")]);
+      return { appealWindowS: Number(appealWindow), graceS: Number(grace) };
     },
     async gasBalances() {
       const out: Partial<Record<SignerRole, bigint>> = {};

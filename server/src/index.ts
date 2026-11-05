@@ -31,6 +31,12 @@ const inspector = createInspector({
   models: { first: config.zg.model, strong: config.zg.modelStrong },
   maxCostUsd: config.zg.maxCostUsd,
 });
+if (chain.ready) {
+  await chain
+    .timing()
+    .then((t) => Object.assign(config.timing, t))
+    .catch((err: Error) => console.log(`using env appeal window/grace: ${err.message}`));
+}
 const keeper = createKeeper({ repo, chain, inspector, timing: config.timing });
 
 const app = createApp({

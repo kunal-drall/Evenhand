@@ -81,6 +81,9 @@ export class FakeChain implements ChainPort {
   async gasBalances() {
     return {};
   }
+  async timing() {
+    return { appealWindowS: 600, graceS: 3600 };
+  }
 }
 
 export const MODELS: VisionModel[] = [

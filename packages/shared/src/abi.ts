@@ -1,5 +1,5 @@
-// Contract ABIs. EvenhandDeposits is written from the signatures in docs/interfaces.md section 3;
-// C1 may replace it with the forge-generated ABI (same signatures, plus custom errors).
+// Contract ABIs. EvenhandDeposits matches contracts/src/EvenhandDeposits.sol (docs/interfaces.md section 3),
+// including its custom errors so reverts decode by name.
 import { parseAbi } from "viem";
 
 export const evenhandDepositsAbi = parseAbi([
@@ -24,6 +24,26 @@ export const evenhandDepositsAbi = parseAbi([
   "event Appealed(bytes32 indexed id, address by)",
   "event Settled(bytes32 indexed id, uint96 toOwner, uint96 toRenter)",
   "event Refunded(bytes32 indexed id, uint96 amount, bytes32 reason)",
+  "event TeeSignerSet(address signer)",
+  "function teeSigner() view returns (address)",
+  "function appealWindow() view returns (uint40)",
+  "function grace() view returns (uint40)",
+  "function teeSuffix(bytes32 id, uint8[6] severity, uint16 confidenceBps) pure returns (bytes)",
+  "error ZeroAddress()",
+  "error InvalidParams()",
+  "error NotInspector()",
+  "error NotArbiter()",
+  "error NotOwner()",
+  "error NotParty()",
+  "error AlreadyCreated()",
+  "error NotCreated()",
+  "error WrongState(uint8 current)",
+  "error TooEarly()",
+  "error WindowClosed()",
+  "error CaptureTooHigh()",
+  "error DepositMismatch()",
+  "error BadTeeSignature()",
+  "error BadTeeText()",
 ]);
 
 /** The subset of TetherTokenV2 that Evenhand reads or signs for (EIP-3009 + EIP-712 domain). */

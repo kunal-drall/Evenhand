@@ -1,4 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { USDT_ADDRESS, WHITECHAIN_TESTNET, ZG_GALILEO, ZG_ROUTER_URL } from "@evenhand/shared";
 import { z } from "zod";
 
@@ -66,6 +68,15 @@ export type Config = {
   photoKeyHex: string | undefined;
 };
 
+const DEPLOYMENTS = fileURLToPath(new URL("../../packages/shared/deployments.json", import.meta.url));
+
+/** EvenhandDeposits address written by contracts/script/Deploy.s.sol, if any. */
+function deployedAddress(chainId: number): Hex | undefined {
+  if (!existsSync(DEPLOYMENTS)) return undefined;
+  const d = JSON.parse(readFileSync(DEPLOYMENTS, "utf8")) as { chainId?: number; EvenhandDeposits?: string };
+  return d.chainId === chainId && d.EvenhandDeposits && /^0x[0-9a-fA-F]{40}$/.test(d.EvenhandDeposits) ? (d.EvenhandDeposits as Hex) : undefined;
+}
+
 /** Reads and validates server env. Secrets stay in this object; never log it. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
@@ -87,7 +98,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       rpcUrl: e.WC_RPC_URL,
       chainId: e.WC_CHAIN_ID,
       usdt: e.USDT_ADDRESS as Hex,
-      deposits: e.DEPOSITS_ADDRESS as Hex | undefined,
+      deposits: (e.DEPOSITS_ADDRESS as Hex | undefined) ?? deployedAddress(e.WC_CHAIN_ID),
       inspectorKey: e.INSPECTOR_PRIVATE_KEY as Hex | undefined,
       relayerKey: e.RELAYER_PRIVATE_KEY as Hex | undefined,
       arbiter: e.ARBITER_ADDRESS as Hex | undefined,
