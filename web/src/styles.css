@@ -309,3 +309,53 @@ fieldset.row legend {
     padding: 2px 0;
   }
 }
+.qr {
+  width: 180px;
+  max-width: 60%;
+  margin: 8px 0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px;
+}
+.qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+h3 {
+  font-size: 15px;
+  margin: 16px 0 8px;
+  color: var(--muted);
+}
+/* Demo shop: deliberately not Evenhand-styled, to read as a separate site. */
+.shop {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+.shop-head {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 12px 0 20px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 20px;
+}
+.shop-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 24px;
+}
+.shop-photo {
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #2f3237 0 60%, #45494f 60%);
+}
+.shop .primary {
+  font-family: inherit;
+}
+@media (max-width: 640px) {
+  .shop-item {
+    grid-template-columns: 1fr;
+  }
+}

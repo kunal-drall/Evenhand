@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { RentalView } from "@evenhand/shared";
 import { isAddress, parseUnits } from "viem";
+import { createEvenhand } from "../../sdk/evenhand";
 import { api } from "../api";
 import { Notice, Shell } from "../components";
 import { usd, when } from "../format";
 import { usePolling } from "../usePolling";
 
 const OWNER_KEY = "evenhand.ownerAddress.v1";
+const sdk = createEvenhand();
 const STATE_LABEL: Record<string, string> = {
   None: "Awaiting deposit",
   Funded: "Deposit held",
@@ -101,7 +103,8 @@ function CreateRental({ owner, decimals, onCreated }: { owner: string; decimals:
       {error && <Notice tone="error">{error}</Notice>}
       {created && (
         <Notice tone="ok">
-          Payment link: <a href={created}>{created}</a>{" "}
+          <div className="qr" dangerouslySetInnerHTML={{ __html: sdk.qrSvg(created) }} />
+          Renter scans this, or open the <a href={created}>payment link</a>{" "}
           <button className="secondary small" onClick={() => void navigator.clipboard?.writeText(created)}>
             Copy
           </button>
@@ -136,6 +139,11 @@ export function OwnerPage() {
         <label className="form">
           Payout address <input value={owner} onChange={(e) => setOwner(e.target.value.trim())} placeholder="0x…" />
         </label>
+        {valid && (
+          <p className="meta">
+            <a href={`/export.csv?owner=${owner}`}>Export settlements (CSV)</a> · <a href="/arbiter">Arbiter queue</a>
+          </p>
+        )}
         {health && (
           <p className="meta">
             Inspector {health.router && health.storage ? "online" : "unavailable: new inspections will pause"}

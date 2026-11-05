@@ -23,6 +23,7 @@ const post = <T>(path: string, body: unknown) =>
 export const api = {
   rental: (id: string) => request<RentalView>(`/rentals/${id}`),
   rentals: (owner: string) => request<RentalView[]>(`/rentals?owner=${owner}`),
+  arbiterQueue: () => request<RentalView[]>("/rentals?queue=arbiter"),
   paymentConfig: () => request<PaymentConfig>("/payment-config"),
   createRental: (body: unknown) => post<{ rentalId: string; payUrl: string; txHash?: string }>("/rentals", body),
   fund: (id: string, body: unknown) => post<{ txHash: string }>(`/rentals/${id}/fund`, body),

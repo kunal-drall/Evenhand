@@ -13,6 +13,7 @@ export default defineConfig({
       "/payment-config": api,
       "/devices": api,
       "/health": api,
+      "/export.csv": api,
     },
   },
 });
