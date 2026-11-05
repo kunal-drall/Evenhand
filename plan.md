@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 04:05 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 04:35 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -73,7 +73,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | Fri 03:00 | 0G spike: JSON verdict, `request_id`, `tee_verified`, storage root | Kunal | code done 01:20; live run needs keys |
 | Fri 03:00 | USDT spike: `receiveWithAuthorization` lands on chain 1874 | Solidity dev | not in repo yet |
 | Fri 03:00 | Capture spike: Secure Enclave signature verified by server | Swift dev | server side ready |
-| Fri 10:00 | Contract complete, tested, deployed, verified | Solidity dev | |
+| Fri 10:00 | Contract complete, tested, deployed, verified | Solidity dev | tested 04:30; deploy needs keys |
 | Fri 14:00 | Happy path end to end | All | |
 | Fri 20:00 | Safe stop, timeout, waive, appeal, export, SDK, shop | All | |
 | Fri 23:00 | P1 stretch: TEE check, QR tag, replay | whoever is free | |
@@ -89,7 +89,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C2 | 0G spike: models, one vision call, storage upload | Kunal | **code done**: model list verified live; chat call and storage upload wait for `.env` keys (`pnpm -C server spike:0g`) | `c2-spike-0g` |
 | C1a | USDT authorization spike | Solidity dev | not started in repo | |
 | C3a | Capture spike (iOS) | Swift dev | server route `/debug/verify-manifest` ready | |
-| C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | empty contract scaffolded | |
+| C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | **written as a fallback** (no contract from the team in the repo by 04:00): 26 Foundry tests incl. fuzz; full flow on anvil via `sh scripts/anvil-e2e.sh`; deploy + verify on 1874 waits for keys | `c1-contract` |
 | C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | **code done**: 67 tests (fake chain/0G/storage); live run `pnpm -C server e2e` waits for keys + deployed contract | `c4-server` |
 | C3 | iOS app | Swift dev | | |
 | C5 | Web: pay, confirm, status, owner dashboard | Kunal | **code done**: full flow verified against the simulator; one-tap pay verified in headless Chrome; phone check on testnet pending | `c5-web` |
@@ -124,6 +124,10 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | Additive endpoints: `GET /payment-config` (verified EIP-712 domain), `GET /rentals?owner=`, `GET /rentals/:id/photos/:phase/:angle` (decrypting proxy) | the web pages need them; spec routes unchanged |
 | 11-06 | The server serves `web/dist` at `/pay`, `/r`, `/owner`, `/shop` | one cloudflared tunnel covers API and renter pages |
 | 11-06 | Cost cap: estimate = rubric + 12 × 1,300 tokens/image + 700 out; refuse above `MAX_INSPECTION_COST_USD` | the token count per image is replaced once the C2 live call measures it |
+| 11-06 | Contract written on `c1-contract` as a fallback; the Solidity dev reviews it or swaps in theirs | nothing from the team was pushed by 04:00 and every other chunk waits on it |
+| 11-06 | Contract additions beyond the spec: `TeeSignerSet` event, public `teeSuffix()` view, balance-delta check on funding, `waive` on an unfunded rental cancels it (amount 0), owner ≠ renter | auditability and safety; no spec behaviour changed |
+| 11-06 | EVM target `prague`, solc 0.8.30 | Whitechain testnet is op-reth with Prague header fields |
+| 11-06 | Keeper reads `appealWindow`/`grace` from the deployed contract; server falls back to `deployments.json` for the address | no env drift after deploy |
 | 11-06 | Renter key: created silently in the browser (localStorage); demo phones are set up once with `/pay/<id>#key=0x…` to import the pre-funded test renter key | a fresh key holds no test USDT; a real product needs an on-ramp or the renter's own wallet |
 | 11-06 | Renter UI shows dollars and "receipts" only: no chain name, gas, token symbol or seed phrase | Whitechain Scale criteria |
 | 11-06 | Renter-initiated appeal is not built: `appeal(id)` must be sent by the owner or renter, and the renter has no gas. Needs a signature-based `appealWithSig` in the contract (relayer-sent), plus an allowlist entry | "renter never pays gas" and the section 10 allowlist both rule out the alternatives |
@@ -154,3 +158,5 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 - Server needs a public URL for the phones: `cloudflared tunnel --url http://localhost:8787`, then set `PUBLIC_BASE_URL`. The server also serves the web build (`pnpm -C web build` first), so one tunnel covers the API and the pages.
 - Run modes: `pnpm -C server dev` (real testnet, needs `.env`), `pnpm -C server dev:fake` (simulator), `pnpm -C web dev` (UI hot reload; proxies the API to :8787).
 - Live checks: `pnpm -C server spike:0g` (0G only), `pnpm -C server e2e` (full flow against a running server).
+- Local chain check (no keys): `sh scripts/anvil-e2e.sh` runs the real contract and server chain code on anvil.
+- Deploy: `cd contracts && forge script script/Deploy.s.sol --rpc-url whitechain --broadcast --verify --verifier blockscout --verifier-url https://explorer.testnet.whitechain.io/api/` (needs `DEPLOYER_PRIVATE_KEY`, `INSPECTOR_PRIVATE_KEY`, `ARBITER_ADDRESS`, `WC_RPC_URL`).
