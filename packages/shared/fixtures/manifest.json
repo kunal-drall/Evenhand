@@ -1,0 +1,47 @@
+{
+  "v": 1,
+  "rentalId": "0x54e0f02b44563205f1882a4ddd3e6efe6b754f5902daefe290bfed8a05a0fc2f",
+  "phase": "pickup",
+  "role": "owner",
+  "deviceKeyId": "dk_fixture",
+  "capturedAt": "2026-11-06T10:15:00Z",
+  "appBuild": "ios/1.0.0+1",
+  "shots": [
+    {
+      "angle": "front",
+      "sha256": "76c6596892b80374dab8dc4b7156aa846c13018d0fa9b36a7607ec473274c362",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "angle": "back",
+      "sha256": "5f995b886691c01ad8770c40f0744fbbff085e768e8185bbd6f593d511ef3b59",
+      "width": 1025,
+      "height": 768
+    },
+    {
+      "angle": "left",
+      "sha256": "3df06cbe17e051e38e1f1fe4feee9a63eb211a9c7340457b4ff625d8bc11919f",
+      "width": 1026,
+      "height": 768
+    },
+    {
+      "angle": "right",
+      "sha256": "447bd9241c73f293b0f0f16d9ef59d33178b96a603c85e720c9adc0929c1bb55",
+      "width": 1027,
+      "height": 768
+    },
+    {
+      "angle": "top",
+      "sha256": "caf72bd87c3ef563b419d831af4979c42ec10351e648141d2d925b390cd45672",
+      "width": 1028,
+      "height": 768
+    },
+    {
+      "angle": "detail",
+      "sha256": "a3883d825ae35c464d4d0b990881ddaeaca54d9c35176b7d20d172949160d0b2",
+      "width": 1029,
+      "height": 768
+    }
+  ]
+}
