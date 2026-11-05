@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 03:45 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 04:05 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -96,7 +96,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C6 | End to end on testnet | All | | |
 | C7a | TEE signature check | Solidity dev + Kunal | needs C2 finding | |
 | C7b | Appeal, arbiter, CSV, SDK, shop | Kunal | **mostly done**: CSV export, arbiter queue + page (`resolveAppeal` via arbiter wallet), SDK + `/shop`, pay QR. User-initiated appeal is blocked on a contract change (decisions log) | `c7b-export-sdk-arbiter` |
-| C7c | QR tag, replay | Swift dev + Kunal | | |
+| C7c | QR tag, replay | Swift dev + Kunal | **replay done** (`pnpm -C server replay <root>`; matches the logged decision in tests); QR tag is iOS work | `c7c-replay` |
 | C8 | Fresh-eyes review | Solidity dev | | |
 | C9 | README, feedback file, AI-use table, submission | Kunal | | |
 
@@ -128,6 +128,7 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | Renter UI shows dollars and "receipts" only: no chain name, gas, token symbol or seed phrase | Whitechain Scale criteria |
 | 11-06 | Renter-initiated appeal is not built: `appeal(id)` must be sent by the owner or renter, and the renter has no gas. Needs a signature-based `appealWithSig` in the contract (relayer-sent), plus an allowlist entry | "renter never pays gas" and the section 10 allowlist both rule out the alternatives |
 | 11-06 | Arbiter resolves from their own wallet on `/arbiter` (`resolveAppeal`), not through the server | arbiter is not one of the two server keys (section 10) |
+| 11-06 | Replay re-applies RULES_V1 to the logged outputs of every pass (deterministic); `--rerun` makes a fresh 0G call, which may differ | the logged run is the evidence; a new model run is a second opinion |
 | 11-06 | CSV amounts are in USDT units (e.g. `200`, `70`), not base units | it's for an accountant |
 | 11-06 | `pnpm -C server dev:fake`: the real app on a fake chain and fake storage (real 0G if keyed), 60 s appeal window | UI and iOS work before deploy; demo fallback rehearsal |
 
