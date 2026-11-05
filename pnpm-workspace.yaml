@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - server
+  - web
+
+# Native or postinstall builds allowed to run (pnpm blocks all others).
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
