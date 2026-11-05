@@ -1,41 +1,13 @@
 // Arbiter queue: verdicts the contract routed to a human (Appealed) and inspections that need one (needs_human).
 // The arbiter resolves with their own wallet: resolveAppeal(id, capture) on the deposits contract.
 import { useState } from "react";
-import { WHITECHAIN_TESTNET, evenhandDepositsAbi, type RentalView } from "@evenhand/shared";
-import { createWalletClient, custom, defineChain, parseUnits, type EIP1193Provider } from "viem";
+import type { RentalView } from "@evenhand/shared";
+import { parseUnits } from "viem";
 import { api } from "../api";
 import { Notice, Photos, Shell, Verdict } from "../components";
 import { usd } from "../format";
+import { sendFromOperatorWallet } from "../operatorWallet";
 import { usePolling } from "../usePolling";
-
-const chain = defineChain({
-  id: WHITECHAIN_TESTNET.chainId,
-  name: "Whitechain Testnet",
-  nativeCurrency: { name: "WhiteBIT Coin", symbol: "WBT", decimals: 18 },
-  rpcUrls: { default: { http: [WHITECHAIN_TESTNET.rpcUrl] } },
-  blockExplorers: { default: { name: "Blockscout", url: WHITECHAIN_TESTNET.explorerUrl } },
-});
-
-async function resolveAppeal(id: string, capture: bigint): Promise<string> {
-  const provider = (window as unknown as { ethereum?: EIP1193Provider }).ethereum;
-  if (!provider) throw new Error("Open this page in a browser with the arbiter's wallet.");
-  const config = await api.paymentConfig();
-  const wallet = createWalletClient({ chain, transport: custom(provider) });
-  const [account] = await wallet.requestAddresses();
-  if (!account) throw new Error("No wallet account selected.");
-  try {
-    await wallet.switchChain({ id: chain.id });
-  } catch {
-    await wallet.addChain({ chain });
-  }
-  return wallet.writeContract({
-    account,
-    address: config.depositsAddress as `0x${string}`,
-    abi: evenhandDepositsAbi,
-    functionName: "resolveAppeal",
-    args: [id as `0x${string}`, capture],
-  });
-}
 
 function Case({ rental, decimals, onDone }: { rental: RentalView; decimals: number; onDone: () => void }) {
   const proposed = rental.inspection?.capture ? Number(rental.inspection.capture) / 10 ** decimals : 0;
@@ -47,7 +19,7 @@ function Case({ rental, decimals, onDone }: { rental: RentalView; decimals: numb
     try {
       const capture = parseUnits(amount, decimals);
       if (capture > BigInt(rental.deposit)) throw new Error("Capture cannot exceed the deposit.");
-      const hash = await resolveAppeal(rental.rentalId, capture);
+      const hash = await sendFromOperatorWallet({ functionName: "resolveAppeal", args: [rental.rentalId as `0x${string}`, capture] });
       setResult({ tone: "ok", text: `Sent: ${hash}` });
       onDone();
     } catch (err) {

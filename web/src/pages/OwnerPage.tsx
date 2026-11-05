@@ -5,6 +5,7 @@ import { createEvenhand } from "../../sdk/evenhand";
 import { api } from "../api";
 import { Notice, Shell } from "../components";
 import { usd, when } from "../format";
+import { sendFromOperatorWallet } from "../operatorWallet";
 import { usePolling } from "../usePolling";
 
 const OWNER_KEY = "evenhand.ownerAddress.v1";
@@ -114,6 +115,35 @@ function CreateRental({ owner, decimals, onCreated }: { owner: string; decimals:
   );
 }
 
+const WAIVABLE = new Set(["None", "Funded", "PickedUp", "Returned", "Proposed", "Appealed"]);
+
+/** Owner releases the full deposit to the renter (contract waive), from the payout address's own wallet. */
+function WaiveButton({ rental, onDone }: { rental: RentalView; onDone: () => void }) {
+  const [state, setState] = useState<"idle" | "busy" | "sent" | string>("idle");
+  if (!WAIVABLE.has(rental.state) || !rental.txs.some((t) => t.label === "createRental")) return null;
+  async function waive() {
+    if (!confirm(`Release the full deposit for "${rental.item}" to the renter?`)) return;
+    setState("busy");
+    try {
+      await sendFromOperatorWallet({ functionName: "waive", args: [rental.rentalId as `0x${string}`] });
+      setState("sent");
+      onDone();
+    } catch (err) {
+      setState((err as Error).message);
+    }
+  }
+  if (state === "sent") return <small>Waived, refreshing…</small>;
+  return (
+    <>
+      {" · "}
+      <button className="secondary small" disabled={state === "busy"} onClick={() => void waive()}>
+        Waive
+      </button>
+      {state !== "idle" && state !== "busy" && <small>{state}</small>}
+    </>
+  );
+}
+
 /** Operator dashboard: create rentals, see every deposit, verdict and settlement. */
 export function OwnerPage() {
   const [owner, setOwner] = useState(readOwner);
@@ -180,6 +210,7 @@ export function OwnerPage() {
                     </td>
                     <td>
                       <a href={`/r/${r.rentalId}`}>Open</a> · <a href={`/pay/${r.rentalId}`}>Pay link</a>
+                      <WaiveButton rental={r} onDone={() => void refresh()} />
                     </td>
                   </tr>
                 ))}
