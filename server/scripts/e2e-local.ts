@@ -1,11 +1,11 @@
 // C4 end-to-end against a running server on testnet: create, fund, pickup + confirm, return with a scratch,
 // then wait for the real 0G verdict and print the tx links. Needs: server running with a full .env, a deployed
 // contract, and TEST_RENTER_PRIVATE_KEY holding test USDT. Run: pnpm -C server e2e   (server: pnpm -C server dev)
-import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import canonicalize from "canonicalize";
 import sharp from "sharp";
-import { ANGLES, receiveWithAuthorizationTypes, type PaymentConfig, type RentalView } from "@evenhand/shared";
-import { parseSignature, toHex } from "viem";
+import { ANGLES, fundingNonce, receiveWithAuthorizationTypes, type PaymentConfig, type RentalView } from "@evenhand/shared";
+import { parseSignature } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadDotEnv } from "../src/env-file.js";
 
@@ -59,13 +59,13 @@ console.log("0G health:", await api("/health/0g"));
 const { deviceKeyId } = await post<{ deviceKeyId: string }>("/devices", { role: "owner", publicKeySpkiB64: spkiB64, label: "e2e" });
 const created = await post<{ rentalId: string; payUrl: string; txHash?: string }>("/rentals", {
   ownerAddress, renterAddress: renter.address, depositUsdt: deposit,
-  returnBy: new Date(Date.now() + 2 * 3600_000).toISOString(), scheduleBps: [0, 1000, 3500, 10000], item: "e2e laptop",
+  returnBy: new Date(Date.now() + 2 * 3600_000).toISOString(), scheduleBps: [0, 1000, 3500, 10000], item: "e2e laptop", ownerDeviceKeyId: deviceKeyId,
 });
 const id = created.rentalId;
 console.log("rental", id, "createRental", created.txHash);
 
 const cfg = await api<PaymentConfig>("/payment-config");
-const message = { from: renter.address, to: cfg.depositsAddress as `0x${string}`, value: BigInt(deposit), validAfter: 0n, validBefore: BigInt(Math.floor(Date.now() / 1000) + 3600), nonce: toHex(randomBytes(32)) };
+const message = { from: renter.address, to: cfg.depositsAddress as `0x${string}`, value: BigInt(deposit), validAfter: 0n, validBefore: BigInt(Math.floor(Date.now() / 1000) + 3600), nonce: fundingNonce(cfg.depositsAddress as `0x${string}`, id as `0x${string}`) };
 const sig = parseSignature(await renter.signTypedData({ domain: cfg.domain as never, types: receiveWithAuthorizationTypes, primaryType: "ReceiveWithAuthorization", message }));
 const fund = await post<{ txHash: string }>(`/rentals/${id}/fund`, { from: renter.address, validAfter: "0", validBefore: message.validBefore.toString(), nonce: message.nonce, v: Number(sig.v), r: sig.r, s: sig.s });
 console.log("funded", fund.txHash);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { receiveWithAuthorizationTypes, type PaymentConfig } from "@evenhand/shared";
-import { parseSignature, toHex } from "viem";
+import { fundingNonce, receiveWithAuthorizationTypes, type PaymentConfig } from "@evenhand/shared";
+import { parseSignature } from "viem";
 import { api } from "../api";
 import { Notice, Shell } from "../components";
 import { pct, usd, when } from "../format";
@@ -41,7 +41,7 @@ export function PayPage({ rentalId }: { rentalId: string }) {
         value: BigInt(rental!.deposit),
         validAfter: 0n,
         validBefore: BigInt(Math.floor(Date.now() / 1000) + 3600),
-        nonce: toHex(crypto.getRandomValues(new Uint8Array(32))),
+        nonce: fundingNonce(config.depositsAddress as `0x${string}`, rentalId as `0x${string}`), // binds the signature to this rental
       };
       const sig = parseSignature(
         await account.signTypedData({ domain: config.domain as never, types: receiveWithAuthorizationTypes, primaryType: "ReceiveWithAuthorization", message }),

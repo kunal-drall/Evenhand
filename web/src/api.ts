@@ -17,13 +17,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+const OPERATOR_KEY = "evenhand.operatorToken.v1";
+
+/** Operator token for listings, the arbiter queue and the CSV export (server OPERATOR_TOKEN). */
+export function operatorToken(): string {
+  try {
+    return localStorage.getItem(OPERATOR_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setOperatorToken(token: string): void {
+  try {
+    localStorage.setItem(OPERATOR_KEY, token);
+  } catch {
+    // private mode: token lasts for this page only
+  }
+}
+
+const operator = () => ({ headers: { "x-operator-token": operatorToken() } });
+
 const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 export const api = {
   rental: (id: string) => request<RentalView>(`/rentals/${id}`),
-  rentals: (owner: string) => request<RentalView[]>(`/rentals?owner=${owner}`),
-  arbiterQueue: () => request<RentalView[]>("/rentals?queue=arbiter"),
+  rentals: (owner: string) => request<RentalView[]>(`/rentals?owner=${owner}`, operator()),
+  arbiterQueue: () => request<RentalView[]>("/rentals?queue=arbiter", operator()),
+  exportUrl: (owner: string) => `/export.csv?owner=${owner}&token=${encodeURIComponent(operatorToken())}`,
   paymentConfig: () => request<PaymentConfig>("/payment-config"),
   createRental: (body: unknown) => post<{ rentalId: string; payUrl: string; txHash?: string }>("/rentals", body),
   fund: (id: string, body: unknown) => post<{ txHash: string }>(`/rentals/${id}/fund`, body),

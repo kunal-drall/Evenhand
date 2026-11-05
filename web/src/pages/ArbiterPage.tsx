@@ -5,6 +5,7 @@ import type { RentalView } from "@evenhand/shared";
 import { parseUnits } from "viem";
 import { api } from "../api";
 import { Notice, Photos, Shell, Verdict } from "../components";
+import { OperatorToken } from "../OperatorToken";
 import { usd } from "../format";
 import { sendFromOperatorWallet } from "../operatorWallet";
 import { usePolling } from "../usePolling";
@@ -73,6 +74,7 @@ export function ArbiterPage() {
       <section className="card">
         <h1>Arbiter</h1>
         <p className="meta">Cases the inspector would not settle on its own.</p>
+        <OperatorToken onChange={() => void refresh()} />
       </section>
       {error && <Notice tone="error">{error}</Notice>}
       {data?.length === 0 && <p className="meta">Nothing waiting.</p>}

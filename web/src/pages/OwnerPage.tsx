@@ -4,6 +4,7 @@ import { isAddress, parseUnits } from "viem";
 import { createEvenhand } from "../../sdk/evenhand";
 import { api } from "../api";
 import { Notice, Shell } from "../components";
+import { OperatorToken } from "../OperatorToken";
 import { usd, when } from "../format";
 import { sendFromOperatorWallet } from "../operatorWallet";
 import { usePolling } from "../usePolling";
@@ -169,9 +170,10 @@ export function OwnerPage() {
         <label className="form">
           Payout address <input value={owner} onChange={(e) => setOwner(e.target.value.trim())} placeholder="0x…" />
         </label>
+        <OperatorToken onChange={() => void refresh()} />
         {valid && (
           <p className="meta">
-            <a href={`/export.csv?owner=${owner}`}>Export settlements (CSV)</a> · <a href="/arbiter">Arbiter queue</a>
+            <a href={api.exportUrl(owner)}>Export settlements (CSV)</a> · <a href="/arbiter">Arbiter queue</a>
           </p>
         )}
         {health && (
