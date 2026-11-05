@@ -3,7 +3,7 @@
 Living plan for the team. Update it whenever a chunk lands, a decision is made or the plan changes.
 Sources: `docs/ai/PRD.md` (what and why), `docs/ai/BUILD_PROMPT.md` (who builds what), `docs/interfaces.md` (the only spec).
 
-Last updated: Fri 6 Nov 2026, 02:30 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
+Last updated: Fri 6 Nov 2026, 03:10 IST. Submissions close **Sat 7 Nov, 09:00 IST**; we submit by 08:00.
 
 ## 1. What we are building
 
@@ -92,7 +92,7 @@ Out of scope: Android, fiat on-ramps, insurance, multi-item rentals, marketplace
 | C1 | `EvenhandDeposits` + tests + deploy + verify | Solidity dev | empty contract scaffolded | |
 | C4 | Server: API, inspector, rules, storage log, relayer, safe stop | Kunal | **code done**: 67 tests (fake chain/0G/storage); live run `pnpm -C server e2e` waits for keys + deployed contract | `c4-server` |
 | C3 | iOS app | Swift dev | | |
-| C5 | Web: pay, confirm, status, owner dashboard | Kunal | | |
+| C5 | Web: pay, confirm, status, owner dashboard | Kunal | **code done**: builds; full flow verified against the simulator (`pnpm -C server dev:fake`); phone check on testnet pending | `c5-web` |
 | C6 | End to end on testnet | All | | |
 | C7a | TEE signature check | Solidity dev + Kunal | needs C2 finding | |
 | C7b | Appeal, arbiter, CSV, SDK, shop | Kunal | | |
@@ -124,6 +124,9 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 | 11-06 | Additive endpoints: `GET /payment-config` (verified EIP-712 domain), `GET /rentals?owner=`, `GET /rentals/:id/photos/:phase/:angle` (decrypting proxy) | the web pages need them; spec routes unchanged |
 | 11-06 | The server serves `web/dist` at `/pay`, `/r`, `/owner`, `/shop` | one cloudflared tunnel covers API and renter pages |
 | 11-06 | Cost cap: estimate = rubric + 12 × 1,300 tokens/image + 700 out; refuse above `MAX_INSPECTION_COST_USD` | the token count per image is replaced once the C2 live call measures it |
+| 11-06 | Renter key: created silently in the browser (localStorage); demo phones are set up once with `/pay/<id>#key=0x…` to import the pre-funded test renter key | a fresh key holds no test USDT; a real product needs an on-ramp or the renter's own wallet |
+| 11-06 | Renter UI shows dollars and "receipts" only: no chain name, gas, token symbol or seed phrase | Whitechain Scale criteria |
+| 11-06 | `pnpm -C server dev:fake`: the real app on a fake chain and fake storage (real 0G if keyed), 60 s appeal window | UI and iOS work before deploy; demo fallback rehearsal |
 
 ## 7. Sponsor checklist (tick when done, with link)
 
@@ -144,4 +147,6 @@ Each feature lands as a branch, then a PR, then a merge. Commits are small and n
 
 - Toolchain: Node 22 (`.nvmrc`), pnpm 12, Foundry 1.9. `pnpm -r build`, `pnpm -C server test`, `cd contracts && forge build`.
 - On an exFAT/FAT drive macOS writes `._*` files that break forge and git: run `pnpm clean:appledouble` first.
-- Server needs a public URL for the phones: `cloudflared tunnel --url http://localhost:8787`, then set `PUBLIC_BASE_URL`.
+- Server needs a public URL for the phones: `cloudflared tunnel --url http://localhost:8787`, then set `PUBLIC_BASE_URL`. The server also serves the web build (`pnpm -C web build` first), so one tunnel covers the API and the pages.
+- Run modes: `pnpm -C server dev` (real testnet, needs `.env`), `pnpm -C server dev:fake` (simulator), `pnpm -C web dev` (UI hot reload; proxies the API to :8787).
+- Live checks: `pnpm -C server spike:0g` (0G only), `pnpm -C server e2e` (full flow against a running server).
