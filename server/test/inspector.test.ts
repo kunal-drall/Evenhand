@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { InspectionLog } from "@evenhand/shared";
 import { createKeeper } from "../src/inspector/keeper.js";
 import { ZgRouterError } from "../src/zg/router.js";
-import { driveToReturned, makeHarness, state, verdictJson, type Harness } from "./harness.js";
+import { confirm, createRental, driveToReturned, makeHarness, postJson, registerOwner, signFund, state, uploadScan, verdictJson, type Harness } from "./harness.js";
 
 let h: Harness;
 let id: string;
@@ -74,15 +74,36 @@ describe("inspector pipeline", () => {
     out.angles[1].usable = false;
     h.zg.outputs = [JSON.stringify(out)];
     await h.inspector.run(id);
-    expect(ins()).toMatchObject({ status: "needs_human", reason: "unusable angle: back" });
+    expect(ins()).toMatchObject({ status: "needs_human", reason: "unusable angle: back", needsArbiter: true });
     expect(lastLog().decision.route).toBe("needs_human");
     expect(h.chain.count("proposeVerdict")).toBe(0);
+    expect(h.chain.count("escalate")).toBe(1); // the arbiter can now settle it
+    expect(state(h, id)).toBe("Appealed");
+  });
+
+  it("routes tee_verified=false to a human instead of an automatic verdict", async () => {
+    h.zg.teeVerified = false;
+    h.zg.outputs = [verdictJson(id)];
+    await h.inspector.run(id);
+    expect(ins()).toMatchObject({ status: "needs_human", reason: "0G reported tee_verified=false" });
+    expect(h.chain.count("proposeVerdict")).toBe(0);
+    expect(h.chain.count("escalate")).toBe(1);
+  });
+
+  it("stops retrying once the rental is closed", async () => {
+    h.zg.outputs = [new ZgRouterError("down", true), new ZgRouterError("down", true), new ZgRouterError("down", true)];
+    await h.inspector.run(id);
+    h.repo.setState(id, "Refunded");
+    await h.inspector.run(id);
+    expect(h.zg.calls).toHaveLength(3);
+    expect(ins()).toMatchObject({ reason: "rental closed (Refunded)", nextAttemptAt: null });
   });
 
   it("needs a human after two schema failures", async () => {
     h.zg.outputs = ["not json", '{"rental_id":"x"}'];
     await h.inspector.run(id);
     expect(ins()).toMatchObject({ status: "needs_human", reason: "model output failed the schema twice" });
+    expect(h.chain.count("escalate")).toBe(1);
     expect(lastLog().parsed).toBeNull();
   });
 
@@ -114,6 +135,7 @@ describe("inspector pipeline", () => {
     h.zg.models = [{ id: "pricey", promptUsdPerToken: 1e-3, completionUsdPerToken: 1e-3, jsonMode: true }];
     await h.inspector.run(id);
     expect(h.zg.calls).toHaveLength(0);
+    expect(h.chain.count("escalate")).toBe(1);
     expect(ins()).toMatchObject({ status: "needs_human", reason: expect.stringContaining("cost") });
   });
 });
@@ -134,6 +156,28 @@ describe("keeper", () => {
     await keeper(Date.now() + 2 * 86_400_000).tick();
     expect(h.chain.calls.filter((c) => c.fn === "refundOnTimeout").map((c) => c.args[0])).toEqual([other]);
     expect(state(h, other)).toBe("Refunded");
+  });
+
+  it("starts a returned rental's inspection that never started (e.g. after a crash)", async () => {
+    h.zg.outputs = [verdictJson(id)];
+    h.repo.updateInspection(id, { status: "running" }); // stale row left by a crashed process
+    const keeper = createKeeper({ repo: h.repo, chain: h.chain, inspector: h.inspector, timing: { appealWindowS: 600, graceS: 3600 }, log: () => {} });
+    await keeper.tick();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ins().status).toBe("done");
+  });
+
+  it("escalates an item never returned instead of refunding it", async () => {
+    const { body } = await createRental(h);
+    await postJson(h, `/rentals/${body.rentalId}/fund`, await signFund(h, body.rentalId));
+    const device = await registerOwner(h);
+    const pickup = await uploadScan(h, body.rentalId, "pickup", device);
+    await confirm(h, body.rentalId, "pickup", pickup.body.manifestHash!);
+    const keeper = createKeeper({ repo: h.repo, chain: h.chain, inspector: h.inspector, timing: { appealWindowS: 600, graceS: 3600 }, clock: () => Date.now() + 2 * 86_400_000, log: () => {} });
+    await keeper.tick();
+    expect(h.chain.calls.filter((c) => c.fn === "escalate").map((c) => c.args[0])).toEqual([body.rentalId]);
+    expect(state(h, body.rentalId)).toBe("Appealed");
+    expect(h.chain.calls.filter((c) => c.fn === "refundOnTimeout").map((c) => c.args[0])).not.toContain(body.rentalId);
   });
 
   it("resumes paused inspections once their retry time has passed", async () => {

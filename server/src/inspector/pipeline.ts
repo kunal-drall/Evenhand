@@ -13,7 +13,7 @@ import { pickModels, type VisionModel } from "../zg/models.js";
 import type { ZgPort, StoragePort } from "../zg/ports.js";
 import { buildInspectionRequest, ZgRouterError, type ImagePair, type ZgCallResult } from "../zg/router.js";
 import { RUBRIC_V1, RUBRIC_V1_SHA256 } from "../zg/rubric.js";
-import { RULES_VERSION, captureFor, decide, parseVerdict, wantsSecondPass, type Decision } from "./rules.js";
+import { RULES_VERSION, captureFor, decide, gateTee, parseVerdict, wantsSecondPass, type Decision } from "./rules.js";
 
 export type InspectorDeps = {
   repo: Repo;
@@ -38,6 +38,8 @@ export class PausedError extends Error {
 }
 
 const ROUTER_RETRIES = 2;
+const CLOSED = ["Settled", "Refunded"];
+
 /** Until the C2 spike measures it: assumed input tokens for one 1024 px image. */
 export const TOKENS_PER_IMAGE_ESTIMATE = 1_300;
 const RETRY_BASE_S = 30;
@@ -112,8 +114,8 @@ export function createInspector(deps: InspectorDeps) {
     const pairs = await loadPairs(rental);
     const first = await pass(rental.id, pairs, models.first);
     const second = strong && wantsSecondPass(first.verdict) ? await pass(rental.id, pairs, strong) : undefined;
-    const decision = decide(first.verdict, second ? second.verdict : undefined);
     const decisive = second ?? first;
+    const decision = gateTee(decide(first.verdict, second ? second.verdict : undefined), decisive.call.teeVerified);
 
     repo.updateInspection(rental.id, {
       model: decisive.model.id,
@@ -184,18 +186,36 @@ export function createInspector(deps: InspectorDeps) {
     }
   }
 
+  /** needs_human has no automatic verdict: escalate so the arbiter can settle it (Returned -> Appealed). */
+  async function escalate(rental: RentalRow): Promise<void> {
+    try {
+      const hash = await chain.escalate(rental.id as Hex);
+      repo.addTx(rental.id, "escalate", hash);
+      repo.setState(rental.id, "Appealed");
+      repo.updateInspection(rental.id, { txHash: hash, needsArbiter: true });
+    } catch (err) {
+      throw new PausedError(`escalate to the arbiter failed: ${(err as Error).message}`);
+    }
+  }
+
   async function run(rentalId: string): Promise<void> {
     const prev = repo.getInspection(rentalId);
+    const rental = repo.getRental(rentalId);
+    if (rental && CLOSED.includes(rental.state)) {
+      // Waived, refunded or settled elsewhere: nothing left to inspect, stop retrying.
+      if (prev && prev.status !== "done") repo.updateInspection(rentalId, { reason: `rental closed (${rental.state})`, nextAttemptAt: null });
+      return;
+    }
     repo.updateInspection(rentalId, { status: "running", reason: null, attempts: (prev?.attempts ?? 0) + 1 });
     try {
-      const rental = repo.getRental(rentalId);
       if (!rental) throw new PausedError("rental not found");
       if (!repo.getInspection(rentalId)!.decisionJson) await infer(rental);
       if (!repo.getInspection(rentalId)!.inspectionRoot) await writeLog(rental);
       const ins = repo.getInspection(rentalId)!;
       const decision = JSON.parse(ins.decisionJson!) as Decision;
       if (decision.route === "needs_human") {
-        repo.updateInspection(rentalId, { status: "needs_human", reason: decision.reason ?? null, finishedAt: new Date(clock()).toISOString() });
+        if (!ins.txHash && rental.state === "Returned") await escalate(rental);
+        repo.updateInspection(rentalId, { status: "needs_human", reason: decision.reason ?? null, finishedAt: new Date(clock()).toISOString(), nextAttemptAt: null });
         return;
       }
       if (!ins.txHash) await propose(rental, decision, ins.inspectionRoot!);
@@ -223,6 +243,7 @@ export function createInspector(deps: InspectorDeps) {
     start(rentalId: string): void {
       void this.run(rentalId);
     },
+    isRunning: (rentalId: string) => running.has(rentalId),
   };
 }
 

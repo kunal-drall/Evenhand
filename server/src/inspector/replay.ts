@@ -1,7 +1,7 @@
 // R16 replay: re-derive a verdict's decision from its 0G Storage InspectionLog alone.
 import type { InspectionLog } from "@evenhand/shared";
 import { RUBRIC_V1_SHA256 } from "../zg/rubric.js";
-import { RULES_VERSION, decide, parseVerdict, type Decision } from "./rules.js";
+import { RULES_VERSION, decide, gateTee, parseVerdict, type Decision } from "./rules.js";
 
 export type ReplayResult = {
   decision: Decision;
@@ -26,6 +26,6 @@ export function replay(log: InspectionLog): ReplayResult {
     return { decision: log.decision, matches: true, checks, note: "no model call was made (cost cap), so there is nothing to replay" };
   }
   const [first, second] = passes.map((p) => parseVerdict(p.rawOutput, log.rentalId));
-  const decision = decide(first ?? null, passes.length > 1 ? (second ?? null) : undefined);
+  const decision = gateTee(decide(first ?? null, passes.length > 1 ? (second ?? null) : undefined), log.teeVerified);
   return { decision, matches: same(decision, log.decision), checks };
 }

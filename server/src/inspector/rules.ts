@@ -63,6 +63,12 @@ export function decide(first: ModelVerdict | null, second?: ModelVerdict | null)
   return from(second, "needs_human", j2.route === "needs_human" ? j2.reason : `overall_confidence below ${MIN_CONFIDENCE} on the second pass`);
 }
 
+/** 0G says tee_verified=false means the signature did not validate: treat the output as untrusted. */
+export function gateTee(decision: Decision, teeVerified: boolean | null): Decision {
+  if (teeVerified !== false || decision.route === "needs_human") return decision;
+  return { ...decision, route: "needs_human", reason: "0G reported tee_verified=false" };
+}
+
 /** Mirrors the contract: deposit * scheduleBps[max(severity)] / 10_000. */
 export function captureFor(deposit: bigint, scheduleBps: readonly number[], severity: readonly number[]): bigint {
   const worst = Math.max(0, ...severity);

@@ -1,10 +1,10 @@
-// Background duties: resume paused inspections, finalize after the appeal window,
-// refund after returnBy + grace, sync state changed by others, and warn when relayer gas runs low.
+// Background duties: (re)start inspections, finalize after the appeal window, escalate items never returned,
+// refund when Evenhand fails to act, sync state changed by others, and warn when relayer gas runs low.
 import type { RentalState } from "@evenhand/shared";
 import type { ChainPort } from "../chain/port.js";
 import type { Config, Hex } from "../config.js";
 import { unixSeconds } from "../rentals/terms.js";
-import type { Repo } from "../rentals/repo.js";
+import type { RentalRow, Repo } from "../rentals/repo.js";
 import type { Inspector } from "./pipeline.js";
 
 const OPEN: RentalState[] = ["Funded", "PickedUp", "Returned", "Proposed", "Appealed"];
@@ -14,7 +14,7 @@ const ONE_WBT = 10n ** 18n;
 export function createKeeper(deps: {
   repo: Repo;
   chain: ChainPort;
-  inspector: Inspector;
+  inspector: Pick<Inspector, "start" | "isRunning">;
   timing: Config["timing"];
   clock?: () => number;
   log?: (msg: string) => void;
@@ -34,28 +34,46 @@ export function createKeeper(deps: {
     }
   }
 
+  /** A returned item's inspection must be running: start it if missing, stale after a crash, or due for retry. */
+  function driveInspection(r: RentalRow, now: number): void {
+    if (r.state !== "Returned" || inspector.isRunning(r.id)) return;
+    const ins = repo.getInspection(r.id);
+    const due = !ins || ins.status === "running" || (ins.status === "paused" && (!ins.nextAttemptAt || ins.nextAttemptAt <= now));
+    if (due || (ins?.status === "needs_human" && !ins.txHash)) inspector.start(r.id);
+  }
+
+  /** No-verdict deadline for a returned item: grace after the later of returnBy and the return. */
+  function returnedDeadline(r: RentalRow): number {
+    const ret = repo.getScan(r.id, "return");
+    return Math.max(unixSeconds(r.returnBy), ret ? unixSeconds(ret.capturedAt) : 0) + timing.graceS;
+  }
+
   return {
     async tick(): Promise<void> {
       const now = clock();
-      for (const ins of repo.listInspections("paused")) {
-        if (!ins.nextAttemptAt || ins.nextAttemptAt <= now) inspector.start(ins.rentalId);
-      }
-      if (!chain.ready) return;
       const nowS = Math.floor(now / 1000);
       for (const r of repo.listRentals({ states: OPEN })) {
-        if (!r.onchain) continue;
-        try {
-          const onchain = await chain.getRental(r.id as Hex);
-          if (onchain.state !== r.state && onchain.state !== "None") {
-            repo.setState(r.id, onchain.state, onchain.proposedAt || undefined);
-            continue;
+        if (chain.ready && r.onchain) {
+          try {
+            const onchain = await chain.getRental(r.id as Hex);
+            if (onchain.state !== r.state && onchain.state !== "None") {
+              repo.setState(r.id, onchain.state, onchain.proposedAt || undefined);
+              continue;
+            }
+          } catch {
+            // RPC hiccup: act on local state
           }
-        } catch {
-          // RPC hiccup: act on local state
         }
+        driveInspection(r, now);
+        if (!chain.ready) continue;
+        const pastReturnBy = nowS > unixSeconds(r.returnBy) + timing.graceS + MARGIN_S;
         if (r.state === "Proposed" && r.proposedAt && nowS > r.proposedAt + timing.appealWindowS + MARGIN_S) {
           await act(r.id, "finalize", () => chain.finalize(r.id as Hex), "Settled");
-        } else if (["Funded", "PickedUp", "Returned"].includes(r.state) && nowS > unixSeconds(r.returnBy) + timing.graceS + MARGIN_S) {
+        } else if (r.state === "PickedUp" && pastReturnBy) {
+          await act(r.id, "escalate", () => chain.escalate(r.id as Hex), "Appealed"); // item never returned: the arbiter decides
+        } else if (r.state === "Funded" && pastReturnBy) {
+          await act(r.id, "refundOnTimeout", () => chain.refundOnTimeout(r.id as Hex), "Refunded");
+        } else if (r.state === "Returned" && nowS > returnedDeadline(r) + MARGIN_S) {
           await act(r.id, "refundOnTimeout", () => chain.refundOnTimeout(r.id as Hex), "Refunded");
         }
       }
