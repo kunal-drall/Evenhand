@@ -1,4 +1,5 @@
 // Local simulator: the real server and web app with a FAKE chain and FAKE 0G Storage (no testnet, no keys).
+// EVENHAND_SIM_CHAIN=real uses the configured chain instead (e.g. a local anvil with the real contract).
 // 0G Router: real if ZG_API_KEY is set, else a scripted verdict (moderate scratch on the lid).
 // For UI work and the iOS app before the contract is deployed. Never use it for the recorded demo's proof.
 // Run: pnpm -C web build && pnpm -C server dev:fake
@@ -6,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { ANGLES } from "@evenhand/shared";
 import { createApp } from "../src/app.js";
+import { createViemChain } from "../src/chain/port.js";
 import { loadConfig } from "../src/config.js";
 import { openDb } from "../src/db.js";
 import { loadDotEnv } from "../src/env-file.js";
@@ -21,7 +23,8 @@ import { FakeChain, FakeStorage, MODELS } from "../test/harness.js";
 loadDotEnv();
 const config = loadConfig({ ...process.env, DATA_DIR: process.env.DATA_DIR || "data-fake" });
 const repo = new Repo(openDb(config.dbPath));
-const chain = new FakeChain();
+const realChain = process.env.EVENHAND_SIM_CHAIN === "real";
+const chain = realChain ? createViemChain(config.chain) : new FakeChain();
 const storage = new FakeStorage();
 const bundles = new BundleStore(config.dataDir);
 const photoKey = loadPhotoKey(config.dataDir, config.photoKeyHex);
@@ -51,7 +54,8 @@ function scriptedZg(): ZgPort {
 
 const zg = config.zg.apiKey ? createZgPort(config.zg) : scriptedZg();
 const inspector = createInspector({ repo, chain, zg, storage, bundles, ensureBundleRoot, photoKey, models: { first: config.zg.model, strong: config.zg.modelStrong }, maxCostUsd: config.zg.maxCostUsd });
-const keeper = createKeeper({ repo, chain, inspector, timing: { appealWindowS: 60, graceS: config.timing.graceS } });
+const timing = realChain ? await chain.timing() : { appealWindowS: 60, graceS: config.timing.graceS };
+const keeper = createKeeper({ repo, chain, inspector, timing });
 const app = createApp({
   repo, chain, inspector, bundles, ensureBundleRoot, photoKey,
   zgHealth: async () => ({ router: true, storage: true }),
@@ -61,5 +65,5 @@ const app = createApp({
 setInterval(() => void keeper.tick(), 5_000).unref();
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`SIMULATOR on :${info.port}: fake chain + fake storage, 0G ${config.zg.apiKey ? "REAL" : "scripted"}, appeal window 60 s, data in ${config.dataDir}/`);
+  console.log(`SIMULATOR on :${info.port}: ${realChain ? "REAL chain" : "fake chain"} + fake storage, 0G ${config.zg.apiKey ? "REAL" : "scripted"}, appeal window ${timing.appealWindowS} s, data in ${config.dataDir}/`);
 });
